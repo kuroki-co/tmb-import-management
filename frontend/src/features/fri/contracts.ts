@@ -3,19 +3,22 @@ import { friSchema } from "./schema";
 const fields = friSchema.shape;
 export const friDataSchema = z.object({
   ...fields,
-  alternatives: z.boolean(),
+  alternatives: z.boolean().optional(),
+  hasSupplier: z.boolean().optional(),
+  email: z.string().optional(),
+  usage: z.string().optional(),
+  originCountry: z.string().optional(),
+  observations: z.string().optional(),
+  purchaseDate: fields.purchaseDate.optional(),
   issuingCountry: fields.issuingCountry.optional(),
   representative: fields.representative.optional(),
   company: fields.company.optional(),
   position: fields.position.optional(),
-  email: fields.email.optional(),
   version: fields.version.optional(),
   color: fields.color.optional(),
   power: fields.power.optional(),
   equipment: fields.equipment.optional(),
-  originCountry: fields.originCountry.optional(),
   supplier: fields.supplier.optional(),
-  observations: fields.observations.optional(),
 });
 export const friRecordSchema = z.object({
   id: z.string(),

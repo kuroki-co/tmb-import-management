@@ -1,9 +1,12 @@
 import { Pencil } from "lucide-react";
 import type { FriFormValues } from "../schema";
 
-type SummaryData = Omit<Partial<FriFormValues>, "alternatives"> & {
-  alternatives?: boolean | "Sí" | "No";
-};
+type SummaryData =
+  & Omit<Partial<FriFormValues>, "alternatives" | "hasSupplier">
+  & {
+    hasSupplier?: boolean | "Sí" | "No";
+    alternatives?: boolean | "Sí" | "No";
+  };
 type Row = [string, string | number | undefined];
 export function FriSummary({
   data: d,
@@ -14,8 +17,10 @@ export function FriSummary({
   compact?: boolean;
   onEdit?: (step: number) => void;
 }) {
-  const corporate =
-    d.documentType === "RUC" && d.documentNumber?.startsWith("20");
+  const corporate = d.documentType === "RUC" &&
+    d.documentNumber?.startsWith("20");
+  const hasSupplier = d.hasSupplier === true || d.hasSupplier === "Sí";
+  const legacy = d.hasSupplier === undefined;
   const date = d.purchaseDate
     ? new Date(`${d.purchaseDate}T00:00:00`).toLocaleDateString("es-PE")
     : undefined;
@@ -36,13 +41,12 @@ export function FriSummary({
           : []),
         ...(!compact
           ? ([
-              ["Empresa", d.company],
-              ["Cargo", d.position],
-            ] as Row[])
+            ["Empresa", d.company],
+            ["Cargo", d.position],
+          ] as Row[])
           : []),
         ["Departamento", d.department],
         ["Celular", d.mobile],
-        ["Correo", d.email],
       ],
     },
     {
@@ -55,14 +59,14 @@ export function FriSummary({
         ["Transmisión", d.transmission],
         ...(!compact
           ? ([
-              ["Versión", d.version],
-              ["Color", d.color],
-              ["Potencia", d.power],
-              ...(d.fuel === "Eléctrico"
-                ? [["Autonomía EV (km)", d.autonomy]]
-                : []),
-              ["Equipamiento", d.equipment],
-            ] as Row[])
+            ["Versión", d.version],
+            ["Color", d.color],
+            ["Potencia", d.power],
+            ...(d.fuel === "Eléctrico"
+              ? [["Autonomía EV (km)", d.autonomy]]
+              : []),
+            ["Equipamiento", d.equipment],
+          ] as Row[])
           : []),
       ],
     },
@@ -75,30 +79,25 @@ export function FriSummary({
             ? `USD ${d.budget.toLocaleString("es-PE")}`
             : undefined,
         ],
-        ["Fecha estimada de compra", date],
-        ["Forma de pago", d.payment],
         [
-          "Alternativas equivalentes",
-          typeof d.alternatives === "boolean"
-            ? d.alternatives
-              ? "Sí"
-              : "No"
-            : d.alternatives,
+          "¿Tiene proveedor de preferencia?",
+          legacy ? undefined : hasSupplier ? "Sí" : "No",
         ],
-        ["Puerto de destino", "Callao, Perú"],
-      ],
-    },
-    {
-      title: "Información para la investigación",
-      rows: [
-        ["Uso del vehículo", d.usage],
-        ["País de origen preferido", d.originCountry],
-        ...(!compact
+        ...(hasSupplier || legacy
           ? ([
-              ["Proveedor de preferencia", d.supplier],
-              ["Observaciones", d.observations],
-            ] as Row[])
+            ["Proveedor de preferencia", d.supplier],
+            ["Incoterm", d.incoterm],
+            ["Fecha estimada de compra", date],
+            ["Forma de pago", d.payment],
+            [
+              "Alternativas equivalentes",
+              typeof d.alternatives === "boolean"
+                ? d.alternatives ? "Sí" : "No"
+                : d.alternatives,
+            ],
+          ] as Row[])
           : []),
+        ["Puerto de destino", "Callao, Perú"],
       ],
     },
   ];
@@ -133,7 +132,11 @@ export function FriSummary({
               .map(([label, value]) => (
                 <div
                   key={label}
-                  className={`min-w-0 ${["Equipamiento", "Observaciones"].includes(label) ? "sm:col-span-2" : ""}`}
+                  className={`min-w-0 ${
+                    ["Equipamiento", "Observaciones"].includes(label)
+                      ? "sm:col-span-2"
+                      : ""
+                  }`}
                 >
                   <dt className="text-xs text-muted">{label}</dt>
                   <dd className="mt-1 break-words whitespace-pre-wrap text-sm font-medium">
@@ -146,15 +149,14 @@ export function FriSummary({
           </dl>
           {!onEdit &&
             rows.some(([, value]) => value === undefined || value === "") && (
-              <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted">
-                Datos opcionales no indicados:{" "}
-                {rows
-                  .filter(([, value]) => value === undefined || value === "")
-                  .map(([label]) => label.toLowerCase())
-                  .join(", ")}
-                .
-              </p>
-            )}
+            <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted">
+              Datos opcionales no indicados: {rows
+                .filter(([, value]) => value === undefined || value === "")
+                .map(([label]) => label.toLowerCase())
+                .join(", ")}
+              .
+            </p>
+          )}
         </section>
       ))}
     </div>

@@ -10,8 +10,9 @@ async function pendingToken(body: unknown) {
     "SHA-256",
     new TextEncoder().encode(JSON.stringify(body)),
   );
-  const fingerprint = Array.from(new Uint8Array(bytes), (n) =>
-    n.toString(16).padStart(2, "0"),
+  const fingerprint = Array.from(
+    new Uint8Array(bytes),
+    (n) => n.toString(16).padStart(2, "0"),
   ).join("");
   if (!pending) {
     try {
@@ -19,35 +20,55 @@ async function pendingToken(body: unknown) {
       if (
         typeof saved?.body === "string" &&
         /^[a-f0-9]{64}$/.test(saved?.token)
-      )
+      ) {
         pending = saved;
+      }
     } catch {}
   }
-  if (pending?.body !== fingerprint)
+  if (pending?.body !== fingerprint) {
     pending = {
       body: fingerprint,
-      token: Array.from(crypto.getRandomValues(new Uint8Array(32)), (n) =>
-        n.toString(16).padStart(2, "0"),
+      token: Array.from(
+        crypto.getRandomValues(new Uint8Array(32)),
+        (n) => n.toString(16).padStart(2, "0"),
       ).join(""),
     };
+  }
   try {
     sessionStorage.setItem(pendingKey, JSON.stringify(pending));
   } catch {}
   return pending.token;
 }
 export async function submitFri(values: FriFormValues) {
-  const { alternatives, ...rest } = values;
+  const {
+    alternatives,
+    hasSupplier,
+    supplier,
+    incoterm,
+    purchaseDate,
+    payment,
+    ...rest
+  } = values;
   const body = {
     ...rest,
-    alternatives: alternatives === "Sí",
+    hasSupplier: hasSupplier === "Sí",
+    ...(hasSupplier === "Sí"
+      ? {
+        supplier,
+        incoterm,
+        purchaseDate,
+        payment,
+        alternatives: alternatives === "Sí",
+      }
+      : {}),
     declaration: true as const,
-    email: values.email || undefined,
     representative:
       values.documentType === "RUC" && values.documentNumber.startsWith("20")
         ? values.representative
         : undefined,
-    issuingCountry:
-      values.documentType === "Pasaporte" ? values.issuingCountry : undefined,
+    issuingCountry: values.documentType === "Pasaporte"
+      ? values.issuingCountry
+      : undefined,
     autonomy: values.fuel === "Eléctrico" ? values.autonomy : undefined,
   };
   if (usesSupabase()) {
@@ -64,31 +85,33 @@ export async function submitFri(values: FriFormValues) {
     } catch {}
     return receipt;
   }
-  const { data, error } = await api.POST("/fri", { body });
-  if (error || !data) throw new Error(errorMessage(error));
-  return data;
+  throw new Error(
+    "El formulario actual requiere Supabase. Revisa la configuración del proveedor.",
+  );
 }
 export async function listFri() {
-  if (usesSupabase())
+  if (usesSupabase()) {
     return friRecordSchema
       .array()
       .parse(await callFriFunction({ action: "list" }, true));
+  }
   const { data, error } = await api.GET("/fri");
   if (error || !data) throw new Error(errorMessage(error));
   return friRecordSchema.array().parse(data);
 }
 export async function loadFri(id: string, token?: string) {
-  if (usesSupabase())
+  if (usesSupabase()) {
     return friRecordSchema.parse(
       await callFriFunction(
         token ? { action: "receipt", id, token } : { action: "review", id },
         !token,
       ),
     );
+  }
   const result = token
     ? await api.GET("/fri/receipt/{id}", {
-        params: { path: { id }, query: { token } },
-      })
+      params: { path: { id }, query: { token } },
+    })
     : await api.POST("/fri/{id}/review", { params: { path: { id } } });
   if (!result.data || result.error) throw new Error(errorMessage(result.error));
   return friRecordSchema.parse(result.data);
@@ -100,22 +123,24 @@ export async function downloadFri(id: string, token?: string): Promise<Blob> {
       !token,
       true,
     );
-    if (!(result instanceof Blob))
+    if (!(result instanceof Blob)) {
       throw new Error("No se pudo descargar el PDF");
+    }
     return result;
   }
   const result = token
     ? await api.GET("/fri/receipt/{id}/pdf", {
-        params: { path: { id }, query: { token } },
-        parseAs: "blob",
-      })
+      params: { path: { id }, query: { token } },
+      parseAs: "blob",
+    })
     : await api.GET("/fri/{id}/pdf", {
-        params: { path: { id } },
-        parseAs: "blob",
-      });
-  if (!result.data || !result.response.ok)
+      params: { path: { id } },
+      parseAs: "blob",
+    });
+  if (!result.data || !result.response.ok) {
     throw new Error(
       "No se pudo generar el PDF. Tu solicitud ya está registrada; puedes reintentar.",
     );
+  }
   return result.data;
 }

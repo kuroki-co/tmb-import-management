@@ -1,4 +1,7 @@
-import { inputSchema } from "../functions/_shared/validation.ts";
+import {
+  inputSchema,
+  recordDataSchema,
+} from "../functions/_shared/validation.ts";
 import { handler } from "../functions/fri-api/index.ts";
 const valid = {
   documentType: "DNI",
@@ -16,7 +19,9 @@ const valid = {
   purchaseDate: "2026-12-01",
   payment: "Transferencia bancaria",
   alternatives: false,
-  usage: "Personal",
+  hasSupplier: true,
+  supplier: "Proveedor prueba",
+  incoterm: "FOB",
   declaration: true,
 };
 function assert(value: unknown, message: string) {
@@ -124,5 +129,55 @@ Deno.test("métodos y orígenes no autorizados no llegan a la base de datos", as
       }),
     )).status === 413,
     "size",
+  );
+});
+
+Deno.test("sin proveedor acepta presupuesto y descarta los campos comerciales ocultos", () => {
+  const { supplier, incoterm, purchaseDate, payment, alternatives, ...base } =
+    valid;
+  const result = inputSchema.parse({ ...base, hasSupplier: false });
+  assert(
+    result.hasSupplier === false && !("payment" in result),
+    "minimal submission",
+  );
+  const stale = inputSchema.parse({ ...valid, hasSupplier: false });
+  assert(
+    !("supplier" in stale) && !("alternatives" in stale),
+    "strip stale values",
+  );
+  assert(
+    !inputSchema.safeParse({ ...base, hasSupplier: true }).success,
+    "supplier requires details",
+  );
+  assert(
+    !inputSchema.safeParse({
+      ...base,
+      hasSupplier: false,
+      email: "test@example.com",
+    }).success,
+    "removed email",
+  );
+  for (
+    const key of [
+      "supplier",
+      "incoterm",
+      "purchaseDate",
+      "payment",
+      "alternatives",
+    ]
+  ) {
+    const missing: Record<string, unknown> = { ...valid };
+    delete missing[key];
+    assert(!inputSchema.safeParse(missing).success, "missing " + key);
+  }
+  assert(
+    recordDataSchema.safeParse({
+      ...base,
+      purchaseDate,
+      payment,
+      alternatives,
+      usage: "Personal",
+    }).success,
+    "historical records remain readable",
   );
 });

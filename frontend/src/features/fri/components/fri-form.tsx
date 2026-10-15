@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import { declarationText, departments, fuels, payments } from "../options";
-import { defaults, friSchema, stepFields, type FriFormValues } from "../schema";
+import { defaults, type FriFormValues, friSchema, stepFields } from "../schema";
 import { submitFri } from "../api";
 import { documentRules } from "../document-rules";
 import { useFriDraft } from "../use-fri-draft";
@@ -23,21 +23,18 @@ const steps = [
   "Cliente",
   "Vehículo",
   "Condiciones",
-  "Investigación",
   "Confirmación",
 ];
 const titles = [
   "Datos del cliente",
   "¿Qué vehículo deseas importar?",
   "Condiciones comerciales",
-  "Información para la investigación",
   "Revisa y confirma tu solicitud",
 ];
 const descriptions = [
   "Identifica al solicitante y deja un celular de contacto.",
   "Describe el vehículo que buscas. Puedes dejar los datos opcionales sin completar.",
-  "Indica tu presupuesto, fecha estimada y preferencias de pago.",
-  "Cuéntanos cómo usarás el vehículo y cualquier preferencia para la búsqueda.",
+  "Indica tu presupuesto y si ya tienes un proveedor de preferencia.",
   "Comprueba tus datos. Puedes editar cada sección antes de enviar.",
 ];
 export function FriForm({ preview = false }: { preview?: boolean }) {
@@ -92,6 +89,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   }, [step, ready, setFocus]);
   const documentType = useWatch({ control, name: "documentType" });
   const number = useWatch({ control, name: "documentNumber" }) || "";
+  const hasSupplier = useWatch({ control, name: "hasSupplier" });
   const fuel = useWatch({ control, name: "fuel" });
   const corporate = documentType === "RUC" && number.startsWith("20");
   const documentRule = documentRules[documentType] ?? documentRules.DNI;
@@ -102,8 +100,6 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     power: "Incluye la unidad, por ejemplo: 150 HP o 110 kW.",
     autonomy: "Distancia estimada con una carga completa, en kilómetros.",
     mobile: "Celular peruano de 9 dígitos, sin +51.",
-    email:
-      "Puedes dejarlo en blanco. Por ahora tu FRI se descarga al finalizar.",
   };
   const describedBy = (name: keyof FriFormValues) =>
     [hints[name] ? `${name}-hint` : "", errors[name] ? `${name}-error` : ""]
@@ -130,20 +126,14 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         type={type}
         aria-invalid={!!errors[name]}
         aria-describedby={describedBy(name)}
-        autoComplete={
-          name === "mobile"
-            ? "tel-national"
-            : name === "email"
-              ? "email"
-              : name === "name" && !corporate
-                ? "name"
-                : undefined
-        }
-        step={
-          type === "number" && (name === "budget" || name === "autonomy")
-            ? "any"
-            : undefined
-        }
+        autoComplete={name === "mobile"
+          ? "tel-national"
+          : name === "name" && !corporate
+          ? "name"
+          : undefined}
+        step={type === "number" && (name === "budget" || name === "autonomy")
+          ? "any"
+          : undefined}
         {...register(
           name,
           type === "number"
@@ -175,31 +165,29 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           name,
           name === "documentType"
             ? {
-                onChange: () => {
-                  resetField("documentNumber", { defaultValue: "" });
-                  setValue("issuingCountry", "");
-                  setValue("representative", "");
-                  clearErrors([
-                    "documentNumber",
-                    "issuingCountry",
-                    "representative",
-                  ]);
-                },
-              }
+              onChange: () => {
+                resetField("documentNumber", { defaultValue: "" });
+                setValue("issuingCountry", "");
+                setValue("representative", "");
+                clearErrors([
+                  "documentNumber",
+                  "issuingCountry",
+                  "representative",
+                ]);
+              },
+            }
             : name === "fuel"
-              ? {
-                  onChange: () => {
-                    setValue("autonomy", undefined);
-                    clearErrors("autonomy");
-                  },
-                }
-              : {},
+            ? {
+              onChange: () => {
+                setValue("autonomy", undefined);
+                clearErrors("autonomy");
+              },
+            }
+            : {},
         )}
       >
         <option value="">Selecciona una opción</option>
-        {options.map((v) => (
-          <option key={v}>{v}</option>
-        ))}
+        {options.map((v) => <option key={v}>{v}</option>)}
       </select>
     </Field>
   );
@@ -210,25 +198,21 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         optional
         error={errors[name]?.message}
         htmlFor={name}
-        hint={
-          name === "equipment"
-            ? "Por ejemplo: cámara de retroceso, asientos de cuero o accesorios específicos."
-            : undefined
-        }
+        hint={name === "equipment"
+          ? "Por ejemplo: cámara de retroceso, asientos de cuero o accesorios específicos."
+          : undefined}
       >
         <textarea
           id={name}
           className={inputClass}
           rows={3}
           aria-invalid={!!errors[name]}
-          aria-describedby={
-            [
-              name === "equipment" ? `${name}-hint` : "",
-              errors[name] ? `${name}-error` : "",
-            ]
-              .filter(Boolean)
-              .join(" ") || undefined
-          }
+          aria-describedby={[
+            name === "equipment" ? `${name}-hint` : "",
+            errors[name] ? `${name}-error` : "",
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined}
           {...register(name)}
         />
       </Field>
@@ -268,10 +252,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         }
       }
       if (valid) {
-        setStep(editing ? 4 : Math.min(step + 1, 4));
+        setStep(editing ? 3 : Math.min(step + 1, 3));
         setEditing(false);
-      } else
+      } else {
         setError("Completa o corrige los campos señalados para continuar.");
+      }
     } finally {
       checkingRef.current = false;
       setChecking(false);
@@ -298,7 +283,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       );
     }
   }
-  if (!ready)
+  if (!ready) {
     return (
       <div
         role="status"
@@ -307,6 +292,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         Recuperando tu formulario…
       </div>
     );
+  }
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
       <form
@@ -316,7 +302,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             event.preventDefault();
             return;
           }
-          if (step < 4) {
+          if (step < 3) {
             event.preventDefault();
             void next();
             return;
@@ -328,7 +314,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             if (!result.success) {
               const key = result.error.issues[0]?.path[0];
               const target = stepFields.findIndex((fields) =>
-                fields.includes(key as keyof FriFormValues),
+                fields.includes(key as keyof FriFormValues)
               );
               if (target >= 0) {
                 pendingFocus.current = key as keyof FriFormValues;
@@ -358,8 +344,8 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               {storageError
                 ? "Este navegador no permite guardar el avance. Mantén esta página abierta hasta enviar."
                 : restored
-                  ? "Recuperamos tu avance. Puedes continuar donde te quedaste."
-                  : "Tu avance se guarda automáticamente en este navegador."}
+                ? "Recuperamos tu avance. Puedes continuar donde te quedaste."
+                : "Tu avance se guarda automáticamente en este navegador."}
             </p>
             <button
               type="button"
@@ -376,36 +362,39 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         <div className="mb-6 md:hidden">
           <div className="mb-3 flex justify-between text-sm">
             <span className="font-semibold">{steps[step]}</span>
-            <span className="text-muted">Paso {step + 1} de 5</span>
+            <span className="text-muted">Paso {step + 1} de 4</span>
           </div>
           <progress
             aria-label="Progreso del formulario"
             value={step + 1}
-            max={5}
+            max={4}
             className="h-2 w-full overflow-hidden rounded-full accent-primary"
           />
         </div>
-        <ol className="mb-9 hidden grid-cols-5 gap-4 md:grid">
+        <ol className="mb-9 hidden grid-cols-4 gap-4 md:grid">
           {steps.map((label, i) => (
             <li
               key={label}
               aria-current={step === i ? "step" : undefined}
-              className={`border-t-3 pt-3 ${i <= step || editing ? "border-primary text-primary" : "border-border text-muted"}`}
+              className={`border-t-3 pt-3 ${
+                i <= step || editing
+                  ? "border-primary text-primary"
+                  : "border-border text-muted"
+              }`}
             >
               <span className="flex items-center gap-1 text-xs font-semibold">
-                {(i < step || (editing && i < 4)) && i !== step ? (
-                  <Check size={12} aria-label="Completado" />
-                ) : (
-                  `${i + 1}.`
-                )}{" "}
-                {label}
+                {(i < step || (editing && i < 3)) && i !== step
+                  ? <Check size={12} aria-label="Completado" />
+                  : (
+                    `${i + 1}.`
+                  )} {label}
               </span>
             </li>
           ))}
         </ol>
         <div className="mb-6">
           <p className="mb-2 hidden text-xs font-bold tracking-[.12em] text-muted md:block">
-            PASO {step + 1} DE 5
+            PASO {step + 1} DE 4
           </p>
           <h2
             ref={heading}
@@ -417,10 +406,10 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           <p className="mt-2 text-sm leading-6 text-muted">
             {descriptions[step]}
           </p>
-          {step < 4 && (
+          {step < 3 && (
             <p className="mt-2 text-xs text-muted">
-              Los campos con <span className="text-primary">*</span> son
-              obligatorios.
+              Los campos con <span className="text-primary">*</span>{" "}
+              son obligatorios.
             </p>
           )}
         </div>
@@ -448,7 +437,9 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                   className={inputClass}
                   inputMode={documentRule.numeric ? "numeric" : "text"}
                   maxLength={documentRule.maxLength}
-                  aria-describedby={`documentNumber-hint${errors.documentNumber ? " documentNumber-error" : ""}`}
+                  aria-describedby={`documentNumber-hint${
+                    errors.documentNumber ? " documentNumber-error" : ""
+                  }`}
                   aria-invalid={!!errors.documentNumber}
                   {...documentRegistration}
                   onChange={(event) => {
@@ -484,7 +475,6 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               {field("position", "Cargo")}
               {select("department", "Departamento", departments)}
               {field("mobile", "Celular", true, "tel")}
-              {field("email", "Correo", false, "email")}
             </>
           )}
           {step === 1 && (
@@ -506,37 +496,53 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           {step === 2 && (
             <>
               {field("budget", "Presupuesto estimado (USD)", true, "number")}
-              {field("purchaseDate", "Fecha estimada de compra", true, "date")}
-              {select("payment", "Forma de pago", payments)}
               <fieldset
-                aria-describedby={
-                  errors.alternatives ? "alternatives-error" : undefined
-                }
-                aria-invalid={!!errors.alternatives}
+                className="md:col-span-2"
+                aria-invalid={!!errors.hasSupplier}
+                aria-describedby={errors.hasSupplier
+                  ? "hasSupplier-error"
+                  : undefined}
               >
                 <legend className="mb-3 text-sm font-medium">
-                  ¿Acepta alternativas equivalentes?{" "}
+                  ¿Tiene un proveedor de preferencia?{" "}
                   <span className="text-primary">*</span>
                 </legend>
                 <div className="flex gap-5">
-                  {["Sí", "No"].map((v) => (
+                  {["Sí", "No"].map((value) => (
                     <label
-                      key={v}
+                      key={value}
                       className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-blue-50"
                     >
                       <input
                         type="radio"
-                        value={v}
+                        value={value}
                         className="h-4 w-4 accent-primary"
-                        {...register("alternatives")}
+                        {...register("hasSupplier", {
+                          onChange: (event) => {
+                            if (event.target.value === "No") {
+                              setValue("supplier", "");
+                              setValue("incoterm", "");
+                              setValue("purchaseDate", "");
+                              setValue("payment", "");
+                              setValue("alternatives", undefined);
+                              clearErrors([
+                                "supplier",
+                                "incoterm",
+                                "purchaseDate",
+                                "payment",
+                                "alternatives",
+                              ]);
+                            }
+                          },
+                        })}
                       />
-                      {v}
+                      {value}
                     </label>
                   ))}
                 </div>
-                {errors.alternatives && (
+                {errors.hasSupplier && (
                   <p
-                    id="alternatives-error"
+                    id="hasSupplier-error"
                     role="alert"
                     className="mt-2 text-xs text-danger"
                   >
@@ -544,6 +550,61 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                   </p>
                 )}
               </fieldset>
+              {hasSupplier === "Sí" && (
+                <>
+                  {field("supplier", "Proveedor de preferencia", true)}
+                  {select("incoterm", "Incoterm", [
+                    "FOB",
+                    "FCA",
+                    "CIF",
+                    "CFR",
+                    "EXW",
+                  ])}
+                  {field(
+                    "purchaseDate",
+                    "Fecha estimada de compra",
+                    true,
+                    "date",
+                  )}
+                  {select("payment", "Forma de pago", payments)}
+                  <fieldset
+                    aria-describedby={errors.alternatives
+                      ? "alternatives-error"
+                      : undefined}
+                    aria-invalid={!!errors.alternatives}
+                  >
+                    <legend className="mb-3 text-sm font-medium">
+                      ¿Acepta alternativas equivalentes?{" "}
+                      <span className="text-primary">*</span>
+                    </legend>
+                    <div className="flex gap-5">
+                      {["Sí", "No"].map((v) => (
+                        <label
+                          key={v}
+                          className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-blue-50"
+                        >
+                          <input
+                            type="radio"
+                            value={v}
+                            className="h-4 w-4 accent-primary"
+                            {...register("alternatives")}
+                          />
+                          {v}
+                        </label>
+                      ))}
+                    </div>
+                    {errors.alternatives && (
+                      <p
+                        id="alternatives-error"
+                        role="alert"
+                        className="mt-2 text-xs text-danger"
+                      >
+                        Selecciona Sí o No
+                      </p>
+                    )}
+                  </fieldset>
+                </>
+              )}
               <div className="rounded-lg bg-background p-4 md:col-span-2">
                 <p className="text-xs text-muted">Puerto de destino</p>
                 <p className="mt-1 text-sm font-semibold">Callao, Perú</p>
@@ -551,18 +612,6 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             </>
           )}
           {step === 3 && (
-            <>
-              {select("usage", "Uso del vehículo", [
-                "Personal",
-                "Comercial",
-                "Industrial",
-              ])}
-              {field("originCountry", "País de origen preferido")}
-              {field("supplier", "Proveedor de preferencia")}
-              {textArea("observations", "Observaciones")}
-            </>
-          )}
-          {step === 4 && (
             <>
               <div className="md:col-span-2">
                 <FriSummary
@@ -581,9 +630,9 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                   type="checkbox"
                   className="mt-1 h-5 w-5 shrink-0 accent-primary"
                   aria-invalid={!!errors.declaration}
-                  aria-describedby={
-                    errors.declaration ? "declaration-error" : undefined
-                  }
+                  aria-describedby={errors.declaration
+                    ? "declaration-error"
+                    : undefined}
                   {...register("declaration")}
                 />
                 <span className="text-sm leading-6 text-muted">
@@ -628,7 +677,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               onClick={() => {
                 if (editing) {
                   setEditing(false);
-                  setStep(4);
+                  setStep(3);
                   setError("");
                 } else setStep((v) => v - 1);
               }}
@@ -637,31 +686,33 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               {editing ? "Volver al resumen" : "Anterior"}
             </Button>
           )}
-          {step < 4 ? (
-            <Button
-              type="submit"
-              className="ml-auto"
-              disabled={checking || registered}
-            >
-              {checking
-                ? "Revisando…"
-                : editing
+          {step < 3
+            ? (
+              <Button
+                type="submit"
+                className="ml-auto"
+                disabled={checking || registered}
+              >
+                {checking
+                  ? "Revisando…"
+                  : editing
                   ? "Revisar cambios"
                   : "Continuar"}
-              <ArrowRight size={15} />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={isSubmitting || registered}>
-              {registered
-                ? "Solicitud registrada"
-                : isSubmitting
+                <ArrowRight size={15} />
+              </Button>
+            )
+            : (
+              <Button type="submit" disabled={isSubmitting || registered}>
+                {registered
+                  ? "Solicitud registrada"
+                  : isSubmitting
                   ? "Registrando…"
                   : preview
-                    ? "Probar confirmación"
-                    : "Enviar solicitud"}
-              <ArrowRight size={15} />
-            </Button>
-          )}
+                  ? "Probar confirmación"
+                  : "Enviar solicitud"}
+                <ArrowRight size={15} />
+              </Button>
+            )}
         </div>
       </form>
       <aside className="hidden h-fit rounded-xl border border-border bg-white p-6 xl:block">

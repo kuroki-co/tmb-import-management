@@ -50,11 +50,13 @@ export class PdfService {
         .text(title, left + 7, y + 7, { width: barWidth - 14 });
       y += 31;
     };
-    const row = (fields: Field[]) => {
+    const row = (fields: Field[], blank = false) => {
       const gap = 0;
       const cell = (width - gap * (fields.length - 1)) / fields.length;
       const values = fields.map(([, value]) =>
-        value === undefined || value === "" ? "-" : String(value)
+        value === undefined || value === ""
+          ? (blank ? " " : "-")
+          : String(value)
       );
       doc.font("Helvetica-Bold").fontSize(8).fillColor(navy);
       const labelHeight = Math.max(
@@ -83,7 +85,9 @@ export class PdfService {
             .fontSize(9)
             .fillColor("#252525")
             .text(
-              value === undefined || value === "" ? "-" : String(value),
+              value === undefined || value === ""
+                ? (blank ? " " : "-")
+                : String(value),
               left,
               doc.y + 5,
               { width, lineGap: 2 },
@@ -156,7 +160,6 @@ export class PdfService {
     row([["Ciudad / País", `${d.department} / Perú`]]);
     row([
       ["Celular", d.mobile],
-      ["Correo", d.email],
     ]);
     y += 6;
     section("2. VEHÍCULO SOLICITADO", width * 0.25, 254);
@@ -176,7 +179,7 @@ export class PdfService {
     ]);
     row([["Equipamiento requerido", d.equipment]]);
     y += 6;
-    section("3. CONDICIONES COMERCIALES", width * 0.35, 484);
+    section("3. CONDICIONES COMERCIALES", width * 0.35, 450);
     row([
       [
         "Presupuesto estimado (USD)",
@@ -184,23 +187,37 @@ export class PdfService {
       ],
       ["Puerto de destino", "Callao, Perú"],
     ]);
-    const date = d.purchaseDate.split("-").reverse().join("/");
+    const hasSupplier = d.hasSupplier === true;
+    const commercial = hasSupplier || d.hasSupplier === undefined;
+    row([
+      [
+        "Proveedor de preferencia",
+        d.hasSupplier === false ? "No tiene" : d.supplier,
+      ],
+      ["Incoterm (FOB/FCA/CIF/CFR/EXW)", commercial ? d.incoterm : ""],
+    ]);
+    const date = commercial
+      ? d.purchaseDate?.split("-").reverse().join("/")
+      : "";
     row([
       ["Fecha estimada de compra", date],
-      ["Forma de pago", d.payment],
+      ["Forma de pago", commercial ? d.payment : ""],
       [
         "¿Acepta alternativas equivalentes?",
-        d.alternatives ? "Sí (X)   No ( )" : "Sí ( )   No (X)",
+        !commercial || d.alternatives === undefined
+          ? ""
+          : d.alternatives
+          ? "Sí (X)   No ( )"
+          : "Sí ( )   No (X)",
       ],
     ]);
     y += 6;
     section("4. INFORMACIÓN PARA LA INVESTIGACIÓN", width * 0.4, 599);
     row([
-      ["Uso del vehículo", d.usage],
-      ["Proveedor de preferencia (si existe)", d.supplier],
-      ["País de origen preferido", d.originCountry],
-    ]);
-    row([["Observaciones", d.observations]]);
+      ["Uso del vehículo", ""],
+      ["País de origen preferido", ""],
+    ], true);
+    row([["Observaciones", ""]], true);
     y += 6;
     section("5. COMPROMISO DEL SOLICITANTE", width, 704);
     doc

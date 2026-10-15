@@ -31,7 +31,7 @@ Las pruebas de permisos, transacciones y validación del backend están document
 
 ## Alcance actual
 
-Formulario de cinco pasos, confirmación con resumen, persistencia real, página de éxito con PDF, login de vendedores, bandeja con búsqueda y filtros, detalle y preview del formulario sin guardar solicitudes. Los vendedores autorizados comparten la bandeja, limitada a las últimas 500 solicitudes.
+Formulario de cuatro pasos, confirmación con resumen, persistencia real, página de éxito con PDF, login de vendedores, bandeja con búsqueda y filtros, detalle y preview del formulario sin guardar solicitudes. Los vendedores autorizados comparten la bandeja, limitada a las últimas 500 solicitudes.
 
 El comprobante público utiliza un token almacenado en la sesión del navegador que hizo el envío. Los vendedores autenticados pueden consultar el detalle y el PDF. La autenticación usa Supabase Auth y requiere HTTPS en producción.
 

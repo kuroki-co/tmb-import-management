@@ -9,6 +9,10 @@ const requiredText = (max = 200) =>
     .max(max, `Máximo ${max} caracteres`);
 const optionalText = (max = 200) =>
   z.string().trim().max(max, `Máximo ${max} caracteres`).default("");
+export const validPurchaseDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  !Number.isNaN(Date.parse(value)) &&
+  new Date(value).toISOString().slice(0, 10) === value;
 export const formSchema = z
   .object({
     documentType: z.enum(["DNI", "RUC", "CE", "Pasaporte"]),
@@ -22,8 +26,6 @@ export const formSchema = z
     mobile: z
       .string()
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
-    email: z.union([z.email("Correo inválido").max(200), z.literal("")])
-      .default(""),
     brand: requiredText(100),
     model: requiredText(100),
     version: optionalText(100),
@@ -51,28 +53,48 @@ export const formSchema = z
       .number("Indica el presupuesto")
       .min(1, "Debe ser mayor que cero")
       .max(1000000000, "El presupuesto máximo es USD 1 000 000 000"),
-    purchaseDate: requiredText(10).refine(
-      (v) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(v) &&
-        !Number.isNaN(Date.parse(v)) &&
-        new Date(v).toISOString().slice(0, 10) === v,
-      "Indica una fecha válida",
-    ),
+    hasSupplier: z.enum(["Sí", "No"]),
+    supplier: optionalText(),
+    incoterm: z.enum(["", "FOB", "FCA", "CIF", "CFR", "EXW"]).optional(),
+    purchaseDate: optionalText(10),
     payment: z.enum([
+      "",
       "Transferencia bancaria",
       "Tarjeta de crédito",
       "Carta de crédito",
-    ]),
-    alternatives: z.enum(["Sí", "No"]),
-    usage: z.enum(["Personal", "Comercial", "Industrial"]),
-    originCountry: optionalText(100),
-    supplier: optionalText(),
-    observations: optionalText(4000),
+    ]).optional(),
+    alternatives: z.enum(["Sí", "No"]).optional(),
     declaration: z
       .boolean()
       .refine((v) => v, "Acepta la declaración para continuar"),
   })
   .superRefine((data, ctx) => {
+    if (data.hasSupplier === "Sí") {
+      for (
+        const key of [
+          "supplier",
+          "incoterm",
+          "purchaseDate",
+          "payment",
+          "alternatives",
+        ] as const
+      ) {
+        if (!data[key]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Completa este campo",
+          });
+        }
+      }
+      if (data.purchaseDate && !validPurchaseDate(data.purchaseDate)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["purchaseDate"],
+          message: "Indica una fecha válida",
+        });
+      }
+    }
     const add = (path: "documentNumber" | "issuingCountry", message: string) =>
       ctx.addIssue({ code: "custom", path: [path], message });
     const rule = documentRules[data.documentType];
@@ -84,29 +106,57 @@ export const formSchema = z
     }
   });
 
+const fields = formSchema.shape;
+export const recordDataSchema = z.object({
+  ...fields,
+  hasSupplier: z.boolean().optional(),
+  alternatives: z.boolean().optional(),
+  email: z.string().optional(),
+  usage: z.string().optional(),
+  originCountry: z.string().optional(),
+  observations: z.string().optional(),
+});
 export const inputSchema = z.object({
-  ...formSchema.shape,
-  alternatives: z.boolean(),
+  ...fields,
+  hasSupplier: z.boolean(),
+  alternatives: z.boolean().optional(),
   declaration: z.literal(true),
 }).strict().superRefine((data, ctx) => {
-  if (!documentRules[data.documentType].pattern.test(data.documentNumber)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["documentNumber"],
-      message: documentRules[data.documentType].message,
-    });
-  }
-  if (data.documentType === "Pasaporte" && !data.issuingCountry) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["issuingCountry"],
-      message: "Indica el país emisor",
-    });
+  const form = formSchema.safeParse({
+    ...data,
+    hasSupplier: data.hasSupplier ? "Sí" : "No",
+    alternatives: data.alternatives === undefined
+      ? undefined
+      : data.alternatives
+      ? "Sí"
+      : "No",
+  });
+  if (!form.success) {
+    for (const issue of form.error.issues) {
+      ctx.addIssue({
+        code: "custom",
+        path: issue.path,
+        message: issue.message,
+      });
+    }
   }
 }).transform((data) => {
-  const { representative, issuingCountry, autonomy, ...rest } = data;
+  const {
+    representative,
+    issuingCountry,
+    autonomy,
+    supplier,
+    incoterm,
+    purchaseDate,
+    payment,
+    alternatives,
+    ...rest
+  } = data;
   return {
     ...rest,
+    ...(data.hasSupplier
+      ? { supplier, incoterm, purchaseDate, payment, alternatives }
+      : {}),
     ...(data.documentType === "RUC" && data.documentNumber.startsWith("20")
       ? { representative }
       : {}),
@@ -114,7 +164,7 @@ export const inputSchema = z.object({
     ...(data.fuel === "Eléctrico" ? { autonomy } : {}),
   };
 });
-export type FriData = z.output<typeof inputSchema>;
+export type FriData = z.output<typeof recordDataSchema>;
 export type Fri = {
   id: string;
   createdAt: string;

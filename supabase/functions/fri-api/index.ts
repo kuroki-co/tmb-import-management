@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 import { z } from "npm:zod@4.6.5";
-import { type Fri, inputSchema } from "../_shared/validation.ts";
+import {
+  type Fri,
+  inputSchema,
+  recordDataSchema,
+} from "../_shared/validation.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({
@@ -52,7 +56,7 @@ const map = (
   createdAt: row.created_at,
   code: row.code,
   status: row.status,
-  data: inputSchema.parse(row.data),
+  data: recordDataSchema.parse(row.data),
 });
 
 export async function handler(req: Request): Promise<Response> {

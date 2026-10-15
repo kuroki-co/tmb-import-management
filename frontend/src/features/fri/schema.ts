@@ -9,6 +9,10 @@ const requiredText = (max = 200) =>
     .max(max, `Máximo ${max} caracteres`);
 const optionalText = (max = 200) =>
   z.string().trim().max(max, `Máximo ${max} caracteres`);
+export const validPurchaseDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  !Number.isNaN(Date.parse(value)) &&
+  new Date(value).toISOString().slice(0, 10) === value;
 export const friSchema = z
   .object({
     documentType: z.enum(["DNI", "RUC", "CE", "Pasaporte"]),
@@ -22,7 +26,6 @@ export const friSchema = z
     mobile: z
       .string()
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
-    email: z.union([z.email("Correo inválido").max(200), z.literal("")]),
     brand: requiredText(100),
     model: requiredText(100),
     version: optionalText(100),
@@ -50,33 +53,54 @@ export const friSchema = z
       .number("Indica el presupuesto")
       .min(1, "Debe ser mayor que cero")
       .max(1000000000, "El presupuesto máximo es USD 1 000 000 000"),
-    purchaseDate: requiredText(10).refine(
-      (v) =>
-        /^\d{4}-\d{2}-\d{2}$/.test(v) &&
-        !Number.isNaN(Date.parse(v)) &&
-        new Date(v).toISOString().slice(0, 10) === v,
-      "Indica una fecha válida",
-    ),
+    hasSupplier: z.enum(["Sí", "No"]),
+    supplier: optionalText(),
+    incoterm: z.enum(["", "FOB", "FCA", "CIF", "CFR", "EXW"]).optional(),
+    purchaseDate: optionalText(10),
     payment: z.enum([
+      "",
       "Transferencia bancaria",
       "Tarjeta de crédito",
       "Carta de crédito",
-    ]),
-    alternatives: z.enum(["Sí", "No"]),
-    usage: z.enum(["Personal", "Comercial", "Industrial"]),
-    originCountry: optionalText(100),
-    supplier: optionalText(),
-    observations: optionalText(4000),
+    ]).optional(),
+    alternatives: z.enum(["Sí", "No"]).optional(),
     declaration: z
       .boolean()
       .refine((v) => v, "Acepta la declaración para continuar"),
   })
   .superRefine((data, ctx) => {
+    if (data.hasSupplier === "Sí") {
+      for (
+        const key of [
+          "supplier",
+          "incoterm",
+          "purchaseDate",
+          "payment",
+          "alternatives",
+        ] as const
+      ) {
+        if (!data[key]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: "Completa este campo",
+          });
+        }
+      }
+      if (data.purchaseDate && !validPurchaseDate(data.purchaseDate)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["purchaseDate"],
+          message: "Indica una fecha válida",
+        });
+      }
+    }
     const add = (path: "documentNumber" | "issuingCountry", message: string) =>
       ctx.addIssue({ code: "custom", path: [path], message });
     const rule = documentRules[data.documentType];
-    if (!rule.pattern.test(data.documentNumber))
+    if (!rule.pattern.test(data.documentNumber)) {
       add("documentNumber", rule.message);
+    }
     if (data.documentType === "Pasaporte") {
       if (!data.issuingCountry) add("issuingCountry", "Indica el país emisor");
     }
@@ -91,7 +115,6 @@ export const defaults: Partial<FriFormValues> = {
   company: "",
   position: "",
   mobile: "",
-  email: "",
   brand: "",
   model: "",
   version: "",
@@ -100,9 +123,9 @@ export const defaults: Partial<FriFormValues> = {
   power: "",
   equipment: "",
   purchaseDate: "",
-  originCountry: "",
   supplier: "",
-  observations: "",
+  incoterm: "",
+  payment: "",
   declaration: false,
 };
 export const stepFields: (keyof FriFormValues)[][] = [
@@ -116,7 +139,6 @@ export const stepFields: (keyof FriFormValues)[][] = [
     "position",
     "department",
     "mobile",
-    "email",
   ],
   [
     "brand",
@@ -131,7 +153,14 @@ export const stepFields: (keyof FriFormValues)[][] = [
     "autonomy",
     "equipment",
   ],
-  ["budget", "purchaseDate", "payment", "alternatives"],
-  ["usage", "originCountry", "supplier", "observations"],
+  [
+    "budget",
+    "hasSupplier",
+    "supplier",
+    "incoterm",
+    "purchaseDate",
+    "payment",
+    "alternatives",
+  ],
   ["declaration"],
 ];

@@ -22,7 +22,6 @@ const fixture: FriFormValues = {
   position: "",
   department: "Arequipa",
   mobile: "999123456",
-  email: "",
   brand: "Toyota",
   model: "Corolla",
   version: "",
@@ -37,10 +36,9 @@ const fixture: FriFormValues = {
   purchaseDate: "2026-12-01",
   payment: "Transferencia bancaria",
   alternatives: "No",
-  usage: "Personal",
-  originCountry: "",
-  supplier: "",
-  observations: "",
+  hasSupplier: "Sí",
+  incoterm: "FOB",
+  supplier: "Proveedor prueba",
   declaration: true,
 };
 function seed(values: Partial<FriFormValues>, step = 0) {
@@ -54,7 +52,7 @@ async function open(
   if (values) seed(values, step);
   const view = render(<FriForm preview={preview} />);
   await screen.findByRole("button", {
-    name: preview || step < 4 ? "Continuar" : "Enviar solicitud",
+    name: preview || step < 3 ? "Continuar" : "Enviar solicitud",
   });
   return { ...view, user: userEvent.setup() };
 }
@@ -64,7 +62,7 @@ beforeEach(() => {
 });
 describe("Flujo público FRI", () => {
   it.each([false, true])(
-    "completa los cinco pasos desde cero (preview=%s)",
+    "completa los cuatro pasos desde cero (preview=%s)",
     async (preview) => {
       submitFri.mockResolvedValue({
         id: "complete-id",
@@ -99,6 +97,12 @@ describe("Flujo público FRI", () => {
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       await screen.findByRole("heading", { name: "Condiciones comerciales" });
       await user.type(screen.getByLabelText(/Presupuesto estimado/), "25000");
+      await user.click(screen.getByRole("radio", { name: "Sí" }));
+      await user.type(
+        screen.getByLabelText(/^Proveedor de preferencia/),
+        "Proveedor prueba",
+      );
+      await user.selectOptions(screen.getByLabelText(/Incoterm/), "FOB");
       await user.type(
         screen.getByLabelText(/Fecha estimada de compra/),
         "2026-12-01",
@@ -107,15 +111,7 @@ describe("Flujo público FRI", () => {
         screen.getByLabelText(/Forma de pago/),
         "Transferencia bancaria",
       );
-      await user.click(screen.getByRole("radio", { name: "No" }));
-      await user.click(screen.getByRole("button", { name: "Continuar" }));
-      await screen.findByRole("heading", {
-        name: "Información para la investigación",
-      });
-      await user.selectOptions(
-        screen.getByLabelText(/Uso del vehículo/),
-        "Personal",
-      );
+      await user.click(screen.getAllByRole("radio", { name: "No" })[1]);
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       await screen.findByRole("heading", {
         name: "Revisa y confirma tu solicitud",
@@ -134,7 +130,7 @@ describe("Flujo público FRI", () => {
         expect(localStorage.getItem(FRI_DRAFT_KEY)).toBeNull();
       } else {
         await waitFor(() =>
-          expect(push).toHaveBeenCalledWith("/fri/exito/complete-id"),
+          expect(push).toHaveBeenCalledWith("/fri/exito/complete-id")
         );
         expect(submitFri).toHaveBeenCalledTimes(1);
         expect(submitFri.mock.calls[0][0].documentNumber).toBe("01234567");
@@ -208,7 +204,7 @@ describe("Flujo público FRI", () => {
     expect(screen.queryByRole("button", { name: "Anterior" })).toBeNull();
   });
   it("edita desde el resumen y Enter vuelve a confirmar sin enviar la solicitud", async () => {
-    const { user } = await open(fixture, 4);
+    const { user } = await open(fixture, 3);
     await user.click(
       screen.getByRole("button", { name: "Editar datos del cliente" }),
     );
@@ -224,7 +220,7 @@ describe("Flujo público FRI", () => {
     expect(submitFri).not.toHaveBeenCalled();
   });
   it("no permite enviar sin aceptar la declaración", async () => {
-    const { user } = await open({ ...fixture, declaration: false }, 4);
+    const { user } = await open({ ...fixture, declaration: false }, 3);
     await user.click(screen.getByRole("button", { name: "Enviar solicitud" }));
     await screen.findByText("Acepta la declaración para continuar");
     expect(submitFri).not.toHaveBeenCalled();
@@ -250,7 +246,7 @@ describe("Flujo público FRI", () => {
           finish = resolve;
         }),
     );
-    const { user } = await open(fixture, 4);
+    const { user } = await open(fixture, 3);
     await user.dblClick(
       screen.getByRole("button", { name: "Enviar solicitud" }),
     );
@@ -261,20 +257,20 @@ describe("Flujo público FRI", () => {
     ).toBe(true);
     finish({ id: "once-id", receiptToken: "once-token" });
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/fri/exito/once-id"),
+      expect(push).toHaveBeenCalledWith("/fri/exito/once-id")
     );
   });
   it("conserva el borrador si falla el envío y permite reintentar", async () => {
     submitFri
       .mockRejectedValueOnce(new Error("Servidor no disponible"))
       .mockResolvedValueOnce({ id: "retry-id", receiptToken: "retry-token" });
-    const { user } = await open(fixture, 4);
+    const { user } = await open(fixture, 3);
     await user.click(screen.getByRole("button", { name: "Enviar solicitud" }));
     await screen.findByText("Servidor no disponible");
     expect(localStorage.getItem(FRI_DRAFT_KEY)).not.toBeNull();
     await user.click(screen.getByRole("button", { name: "Enviar solicitud" }));
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/fri/exito/retry-id"),
+      expect(push).toHaveBeenCalledWith("/fri/exito/retry-id")
     );
     expect(localStorage.getItem(FRI_DRAFT_KEY)).toBeNull();
   });
@@ -283,7 +279,7 @@ describe("Flujo público FRI", () => {
       id: "blocked-storage-id",
       receiptToken: "token",
     });
-    const { user } = await open(fixture, 4);
+    const { user } = await open(fixture, 3);
     const original = Storage.prototype.setItem;
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
       this: Storage,
@@ -295,7 +291,7 @@ describe("Flujo público FRI", () => {
     });
     await user.click(screen.getByRole("button", { name: "Enviar solicitud" }));
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/fri/exito/blocked-storage-id"),
+      expect(push).toHaveBeenCalledWith("/fri/exito/blocked-storage-id")
     );
     expect(getReceiptToken("blocked-storage-id")).toBe("token");
     expect(submitFri).toHaveBeenCalledTimes(1);
@@ -308,7 +304,7 @@ describe("Flujo público FRI", () => {
     ).toBe(true);
   });
   it("el preview no lee el borrador público ni registra una solicitud", async () => {
-    seed(fixture, 4);
+    seed(fixture, 3);
     const saved = localStorage.getItem(FRI_DRAFT_KEY);
     const { user } = await open(undefined, 0, true);
     expect(
@@ -318,4 +314,51 @@ describe("Flujo público FRI", () => {
     expect(localStorage.getItem(FRI_DRAFT_KEY)).toBe(saved);
     expect(submitFri).not.toHaveBeenCalled();
   });
+});
+
+it("sin proveedor omite condiciones dependientes e investigación y permite enviar", async () => {
+  submitFri.mockResolvedValue({ id: "no-supplier", receiptToken: "token" });
+  const { user } = await open({
+    ...fixture,
+    hasSupplier: undefined,
+    supplier: "",
+    incoterm: "",
+    purchaseDate: "",
+    payment: "",
+    alternatives: undefined,
+  }, 2);
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  await screen.findByText("Selecciona Sí o No");
+  await user.click(screen.getByRole("radio", { name: "No" }));
+  expect(screen.queryByLabelText(/Fecha estimada de compra/)).toBeNull();
+  expect(screen.queryByLabelText(/Incoterm/)).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  await screen.findByRole("heading", {
+    name: "Revisa y confirma tu solicitud",
+  });
+  expect(screen.queryByText("Información para la investigación")).toBeNull();
+  expect(screen.queryByText("Correo")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Enviar solicitud" }));
+  await waitFor(() => expect(submitFri).toHaveBeenCalledTimes(1));
+});
+it("exige los datos comerciales con proveedor y los limpia al elegir No", async () => {
+  const { user } = await open({ ...fixture, incoterm: "" }, 2);
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  expect(screen.getByLabelText(/Incoterm/).getAttribute("aria-invalid")).toBe(
+    "true",
+  );
+  await user.click(screen.getAllByRole("radio", { name: "No" })[0]);
+  await user.click(screen.getByRole("radio", { name: "Sí" }));
+  expect(
+    (screen.getByLabelText(/^Proveedor de preferencia/) as HTMLInputElement)
+      .value,
+  ).toBe("");
+  expect(
+    (screen.getByLabelText(/Fecha estimada de compra/) as HTMLInputElement)
+      .value,
+  ).toBe("");
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  expect(
+    screen.queryByRole("heading", { name: "Revisa y confirma tu solicitud" }),
+  ).toBeNull();
 });
