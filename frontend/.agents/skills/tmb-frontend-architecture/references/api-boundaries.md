@@ -1,5 +1,9 @@
 # Acceso y contratos de la API NestJS
 
+## Transición a Supabase
+
+Estas reglas aplican a operaciones que siguen usando NestJS. Para una operación migrada, usar los clientes de `src/lib/supabase/`, tipos generados de la base y la autorización implementada en Supabase; mantener el transporte específico en la funcionalidad. Consultar `supabase/README.md` desde la raíz y la skill `supabase/.agents/skills/tmb-supabase/SKILL.md`. No activar el cambio de proveedor solo por detectar variables de entorno. El frontend nunca debe contener secret keys ni omitir RLS/validación del servidor por usar el SDK directamente.
+
 ## Responsabilidades
 
 - Ubicar llamadas específicas en la funcionalidad propietaria, por ejemplo `src/features/<feature>/api.ts`.

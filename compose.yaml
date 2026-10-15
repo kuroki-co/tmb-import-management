@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tmb
+      POSTGRES_DB: tmb
+      POSTGRES_PASSWORD: ${TMB_DB_PASSWORD:?Define TMB_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - tmb_postgres:/var/lib/postgresql/data
+volumes:
+  tmb_postgres:

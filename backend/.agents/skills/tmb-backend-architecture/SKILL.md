@@ -7,6 +7,8 @@ description: Crear y ampliar el backend NestJS de TMB con módulos por funcional
 
 Todas las rutas de código son relativas a `backend/`. Respetar las instrucciones del repositorio. Consultar Context7 para sintaxis y configuración actuales de las librerías utilizadas.
 
+Transición acordada: el backend objetivo es Supabase y sus reglas viven en `../supabase/.agents/skills/tmb-supabase/SKILL.md`. Esta skill aplica al NestJS legado conservado como respaldo; Supabase ya está activo y el historial fue importado. Consultar `../supabase/README.md` antes de introducir nuevas integraciones o retirar funcionalidades. Para las notificaciones nuevas el proveedor acordado es Resend por HTTP; las referencias históricas a Nodemailer/SMTP no obligan a incorporarlo.
+
 ## Stack acordado
 
 - NestJS, TypeScript y pnpm.

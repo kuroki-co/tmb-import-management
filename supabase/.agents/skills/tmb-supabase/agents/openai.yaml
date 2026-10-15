@@ -1,0 +1,4 @@
+interface:
+  display_name: "TMB Supabase"
+  short_description: "Seguridad y buenas prácticas del backend Supabase"
+  default_prompt: "Usa $tmb-supabase para implementar esta funcionalidad en el backend de TMB."

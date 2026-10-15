@@ -1,15 +1,19 @@
 ---
 name: tmb-frontend-architecture
-description: Organizar y ampliar el frontend de TMB con Next.js, React y TypeScript. Usar al crear funcionalidades, refactorizar responsabilidades, decidir límites servidor/cliente o estructurar acceso y contratos de la API NestJS; no para cambios exclusivamente visuales.
+description: Organizar y ampliar el frontend de TMB con Next.js, React y TypeScript. Usar al crear funcionalidades, refactorizar responsabilidades, decidir límites servidor/cliente o estructurar acceso y contratos de NestJS y Supabase; no para cambios exclusivamente visuales.
 ---
 
 # Arquitectura del frontend de TMB
 
-Trabajar sobre `frontend/` con Next.js App Router, React, TypeScript, Tailwind CSS y pnpm. Consultar `package.json` para las versiones instaladas. NestJS es el backend independiente: posee persistencia, autorización y reglas del negocio.
+Trabajar sobre `frontend/` con Next.js App Router, React, TypeScript, Tailwind CSS y pnpm. Consultar `package.json` para las versiones instaladas. Supabase es el backend activo: posee persistencia, autorización y reglas del negocio.
+
+El backend activo es Supabase. Migraciones y funciones viven en `../supabase/` y los clientes en `src/lib/supabase/`. NestJS se conserva como respaldo legado; no debe arrancarse para el flujo actual. Revisar `../supabase/README.md` para conocer el estado. Mantener llamadas por funcionalidad y migrarlas de forma explícita; configurar variables no debe cambiar silenciosamente el proveedor. Las reglas del backend Supabase viven en su skill `tmb-supabase`.
 
 Respetar `AGENTS.md`. Antes de escribir código específico de Next.js, leer la guía pertinente de `node_modules/next/dist/docs/` indicada por el repositorio y consultar Context7 para sintaxis, configuración o comportamiento de librerías.
 
-Para contratos de API, el estándar acordado es OpenAPI generado por NestJS, tipos con `openapi-typescript` y consumo mediante `openapi-fetch`. Para formularios, usar React Hook Form con Zod y `@hookform/resolvers`. Son decisiones de stack; consultar `package.json` para comprobar qué dependencias ya están instaladas antes de implementar.
+Para Supabase usar tipos generados de la base y esquemas Zod para Edge Functions. OpenAPI, `openapi-typescript` y `openapi-fetch` quedan limitados al proveedor NestJS legado. Para formularios, usar React Hook Form con Zod y `@hookform/resolvers`. Son decisiones de stack; consultar `package.json` para comprobar qué dependencias ya están instaladas antes de implementar.
+
+OpenAPI sigue siendo autoridad para las operaciones actuales de NestJS. Al migrar una operación a Supabase, usar tipos generados de sus tablas/RPC y contratos validados para Edge Functions; no generar tipos Supabase manualmente ni reutilizar DTOs antiguos como si provinieran del nuevo backend.
 
 ## Prioridades
 
