@@ -10,6 +10,8 @@ export const friDataSchema = z.object({
   originCountry: z.string().optional(),
   observations: z.string().optional(),
   purchaseDate: fields.purchaseDate.optional(),
+  // Historial: solicitudes previas pueden conservar formas de pago antiguas.
+  payment: z.string().optional(),
   issuingCountry: fields.issuingCountry.optional(),
   representative: fields.representative.optional(),
   company: fields.company.optional(),

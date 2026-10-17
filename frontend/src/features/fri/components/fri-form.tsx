@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "@/components/ui/select";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import { declarationText, departments, fuels, payments } from "../options";
-import { defaults, type FriFormValues, friSchema, stepFields } from "../schema";
+import { defaults, type FriFormValues, friSchema, stepFields, transmissions } from "../schema";
 import { submitFri } from "../api";
 import { documentRules } from "../document-rules";
 import { useFriDraft } from "../use-fri-draft";
@@ -156,7 +157,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       error={errors[name]?.message ? "Selecciona una opción válida" : undefined}
       htmlFor={name}
     >
-      <select
+      <Select
         id={name}
         className={inputClass}
         aria-invalid={!!errors[name]}
@@ -188,7 +189,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       >
         <option value="">Selecciona una opción</option>
         {options.map((v) => <option key={v}>{v}</option>)}
-      </select>
+      </Select>
     </Field>
   );
   const textArea = (name: keyof FriFormValues, label: string) => (
@@ -326,7 +327,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         className="rounded-xl border border-border bg-white p-5 md:p-8"
       >
         {preview && (
-          <p className="mb-6 rounded-lg bg-blue-50 p-3 text-sm text-primary">
+          <p className="mb-6 rounded-lg bg-accent-soft p-3 text-sm text-primary">
             Vista previa del formulario: no registra solicitudes.{" "}
             <a
               href="/fri"
@@ -368,7 +369,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             aria-label="Progreso del formulario"
             value={step + 1}
             max={4}
-            className="h-2 w-full overflow-hidden rounded-full accent-primary"
+            className="h-2 w-full overflow-hidden rounded-full accent-accent"
           />
         </div>
         <ol className="mb-9 hidden grid-cols-4 gap-4 md:grid">
@@ -378,7 +379,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               aria-current={step === i ? "step" : undefined}
               className={`border-t-3 pt-3 ${
                 i <= step || editing
-                  ? "border-primary text-primary"
+                  ? "border-accent text-primary"
                   : "border-border text-muted"
               }`}
             >
@@ -486,7 +487,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               {field("color", "Color")}
               {field("quantity", "Cantidad", true, "number")}
               {select("fuel", "Tipo de combustible", fuels)}
-              {select("transmission", "Transmisión", ["Automática", "Manual"])}
+              {select("transmission", "Transmisión", transmissions)}
               {field("power", "Potencia (indica unidad)")}
               {fuel === "Eléctrico" &&
                 field("autonomy", "Autonomía EV (km)", false, "number")}
@@ -511,7 +512,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                   {["Sí", "No"].map((value) => (
                     <label
                       key={value}
-                      className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-blue-50"
+                      className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent-soft"
                     >
                       <input
                         type="radio"
@@ -581,7 +582,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                       {["Sí", "No"].map((v) => (
                         <label
                           key={v}
-                          className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-blue-50"
+                          className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent-soft"
                         >
                           <input
                             type="radio"
@@ -654,7 +655,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         {preview && previewConfirmed && (
           <p
             role="status"
-            className="mt-5 rounded-lg bg-blue-50 p-3 text-sm text-primary"
+            className="mt-5 rounded-lg bg-accent-soft p-3 text-sm text-primary"
           >
             Formulario validado correctamente. Esta vista previa no guarda
             solicitudes.
@@ -716,7 +717,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         </div>
       </form>
       <aside className="hidden h-fit rounded-xl border border-border bg-white p-6 xl:block">
-        <span className="rounded bg-blue-50 px-2 py-1 text-[10px] font-bold tracking-wider text-primary">
+        <span className="rounded bg-accent-soft px-2 py-1 text-[10px] font-bold tracking-wider text-primary">
           FRI DIGITAL
         </span>
         <h3 className="mt-5 text-lg font-semibold">
@@ -741,7 +742,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             ["03", "Descarga tu FRI", "Recibe tu ficha en PDF al finalizar."],
           ].map(([n, t, d]) => (
             <div key={n} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[10px] font-bold text-primary">
                 {n}
               </span>
               <div>

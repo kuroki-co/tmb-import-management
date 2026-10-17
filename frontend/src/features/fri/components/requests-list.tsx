@@ -1,13 +1,12 @@
 "use client";
+import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ClipboardList,
   Search,
-  SlidersHorizontal,
   ArrowUpRight,
-  Clock3,
-  CheckCircle2,
+  Eye,
   RefreshCw,
 } from "lucide-react";
 import { listFri, type Fri } from "../api";
@@ -104,70 +103,30 @@ export function RequestsList() {
           </Link>
         </div>
       </div>
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {[
-          {
-            label: "Solicitudes recibidas",
-            value: rows.length,
-            icon: ClipboardList,
-            hint: "Últimos 500 registros",
-          },
-          {
-            label: "Pendiente a revisar",
-            value: rows.filter((r) => r.status === "Pendiente a revisar")
-              .length,
-            icon: Clock3,
-            hint: "Pendientes de revisión",
-          },
-          {
-            label: "En revisión",
-            value: rows.filter((r) => r.status === "En revisión").length,
-            icon: CheckCircle2,
-            hint: "Investigación en curso",
-          },
-          {
-            label: "Cotizado",
-            value: rows.filter((r) => r.status === "Cotizado").length,
-            icon: ClipboardList,
-            hint: "Cotización preparada",
-          },
-          {
-            label: "Confirmado a compra",
-            value: rows.filter((r) => r.status === "Confirmado a compra")
-              .length,
-            icon: CheckCircle2,
-            hint: "Compra confirmada",
-          },
-        ].map(({ label, value, icon: Icon, hint }) => (
-          <button
-            key={label}
-            type="button"
-            aria-pressed={
-              status === (label === "Solicitudes recibidas" ? "" : label)
-            }
-            aria-label={`Filtrar: ${label}`}
-            onClick={() =>
-              setStatus(label === "Solicitudes recibidas" ? "" : label)
-            }
-            disabled={!updatedAt}
-            className={`rounded-xl border bg-white p-4 text-left transition-colors hover:border-primary motion-reduce:transition-none md:p-5 ${status === (label === "Solicitudes recibidas" ? "" : label) ? "border-primary ring-1 ring-primary/10" : "border-border"}`}
-          >
-            <div className="flex justify-between">
-              <p className="text-xs font-medium text-muted">{label}</p>
-              <span className="rounded-lg bg-blue-50 p-2 text-primary">
-                <Icon size={17} />
-              </span>
-            </div>
-            <p className="mt-2 text-3xl font-semibold">
-              {!updatedAt ? "—" : value}
-            </p>
-            <p className="mt-2 text-xs text-muted">{hint}</p>
-          </button>
-        ))}
-      </div>
-      <div className="mb-5 flex flex-wrap gap-3 rounded-xl border border-border bg-white p-4">
-        <div className="relative min-w-52 flex-1">
-          <Search size={17} className="absolute left-3 top-3 text-muted" />
+      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-white">
+        <div aria-label="Filtrar por estado" className="hidden flex-wrap gap-1 border-b border-border p-2 md:flex">
+          {["Solicitudes recibidas", "Pendiente a revisar", "En revisión", "Cotizado"].map((label) => {
+            const value = label === "Solicitudes recibidas" ? "" : label;
+            const count = value ? rows.filter((row) => row.status === value).length : rows.length;
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-label={`Filtrar: ${label}`}
+                aria-pressed={status === value}
+                disabled={!updatedAt}
+                onClick={() => setStatus(value)}
+                className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm transition-colors ${status === value ? "bg-accent-soft font-semibold text-primary" : "text-muted hover:bg-background"}`}
+              >
+                {value || "Todas"}
+                <span className="rounded-full bg-background px-2 py-0.5 text-xs tabular-nums">{updatedAt ? count : "—"}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-3 md:grid-cols-[minmax(0,1fr)_11rem_auto]">
+        <div className="relative order-1 col-span-2 min-w-0 md:col-span-1">
+          <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             aria-label="Buscar solicitudes"
             className={`${inputClass} py-2.5 pl-10`}
@@ -176,9 +135,9 @@ export function RequestsList() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
+        <Select
           aria-label="Estado de solicitud"
-          className={`${inputClass} w-auto py-2.5`}
+          className={`${inputClass} order-2 col-span-2 min-h-11 min-w-0 py-2.5 md:hidden`}
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
@@ -188,33 +147,34 @@ export function RequestsList() {
               "Pendiente a revisar",
               "En revisión",
               "Cotizado",
-              "Confirmado a compra",
             ] satisfies Fri["status"][]
           ).map((s) => (
             <option key={s}>{s}</option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Ordenar solicitudes"
-          className={`${inputClass} w-auto py-2.5`}
+          className={`${inputClass} order-3 min-h-11 min-w-0 py-2.5`}
           value={sort}
           onChange={(event) => setSort(event.target.value)}
         >
           <option value="recent">Más recientes</option>
           <option value="oldest">Más antiguas</option>
           <option value="budget">Mayor presupuesto</option>
-        </select>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setSearch("");
-            setStatus("");
-            setSort("recent");
-          }}
-        >
-          <SlidersHorizontal size={15} />
-          Limpiar
-        </Button>
+        </Select>
+          <button
+            type="button"
+            disabled={!search && !status && sort === "recent"}
+            className="order-4 min-h-11 justify-self-end whitespace-nowrap rounded-lg px-3 text-sm font-medium text-primary enabled:hover:bg-background"
+            onClick={() => {
+              setSearch("");
+              setStatus("");
+              setSort("recent");
+            }}
+          >
+            Limpiar filtros
+          </button>
+        </div>
       </div>
       <section className="overflow-hidden rounded-xl border border-border bg-white">
         {error && updatedAt && (
@@ -262,7 +222,7 @@ export function RequestsList() {
           </div>
         ) : !filtered.length ? (
           <div className="px-6 py-16 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-primary">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-primary">
               <ClipboardList size={25} />
             </div>
             <h2 className="font-semibold">
@@ -390,9 +350,10 @@ export function RequestsList() {
                       <td className="px-5 py-4">
                         <Link
                           href={`/panel/solicitudes/${row.id}`}
-                          className="whitespace-nowrap text-xs font-semibold text-primary"
+                          className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 text-xs font-semibold text-primary transition-colors hover:border-accent-border hover:bg-accent-soft focus-visible:outline-offset-2"
                         >
-                          Ver detalle →
+                          Ver detalle
+                          <Eye size={14} aria-hidden />
                         </Link>
                       </td>
                     </tr>
@@ -404,7 +365,7 @@ export function RequestsList() {
         )}
         <div
           aria-live="polite"
-          className="flex flex-wrap justify-between gap-2 border-t border-border px-5 py-3 text-xs text-muted"
+          className="flex flex-wrap justify-between gap-x-2 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted"
         >
           <span>
             {updatedAt

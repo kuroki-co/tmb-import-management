@@ -93,11 +93,29 @@ export class CreateFriDto {
   @MaxLength(80)
   color?: string;
   @ApiProperty() @IsInt() @Min(1) @Max(10000) quantity: number;
-  @ApiProperty({ enum: ['Gasolina', 'Diésel', 'Eléctrico', 'No aplica'] })
-  @IsIn(['Gasolina', 'Diésel', 'Eléctrico', 'No aplica'])
+  @ApiProperty({ enum: ['Gasolina', 'Diésel', 'Híbrido', 'Eléctrico', 'No aplica'] })
+  @IsIn(['Gasolina', 'Diésel', 'Híbrido', 'Eléctrico', 'No aplica'])
   fuel: string;
-  @ApiProperty({ enum: ['Automática', 'Manual'] })
-  @IsIn(['Automática', 'Manual'])
+  @ApiProperty({
+    enum: [
+      'Manual o mecánica (MT)',
+      'Automática convencional (AT)',
+      'Manual automatizada (AMT)',
+      'Automática de doble embrague (DCT)',
+      'Transmisión continuamente variable (CVT)',
+      'Transmisión eléctrica (EV / e-Axle)',
+      'Transmisión híbrida (e-CVT / DHT)',
+    ],
+  })
+  @IsIn([
+    'Manual o mecánica (MT)',
+    'Automática convencional (AT)',
+    'Manual automatizada (AMT)',
+    'Automática de doble embrague (DCT)',
+    'Transmisión continuamente variable (CVT)',
+    'Transmisión eléctrica (EV / e-Axle)',
+    'Transmisión híbrida (e-CVT / DHT)',
+  ])
   transmission: string;
   @ApiPropertyOptional()
   @IsOptional()
@@ -118,9 +136,9 @@ export class CreateFriDto {
   @ApiProperty() @IsNumber() @Min(1) @Max(1000000000) budget: number;
   @ApiProperty() @Matches(/^\d{4}-\d{2}-\d{2}$/) purchaseDate: string;
   @ApiProperty({
-    enum: ['Transferencia bancaria', 'Tarjeta de crédito', 'Carta de crédito'],
+    enum: ['Contado', 'Financiado'],
   })
-  @IsIn(['Transferencia bancaria', 'Tarjeta de crédito', 'Carta de crédito'])
+  @IsIn(['Contado', 'Financiado'])
   payment: string;
   @ApiProperty() @IsBoolean() alternatives: boolean;
   @ApiProperty({ enum: ['Personal', 'Comercial', 'Industrial'] })

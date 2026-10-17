@@ -29,12 +29,12 @@ const fixture: FriFormValues = {
   color: "",
   quantity: 1,
   fuel: "Gasolina",
-  transmission: "Automática",
+  transmission: "Automática convencional (AT)",
   power: "",
   equipment: "",
   budget: 25000,
   purchaseDate: "2026-12-01",
-  payment: "Transferencia bancaria",
+  payment: "Contado",
   alternatives: "No",
   hasSupplier: "Sí",
   incoterm: "FOB",
@@ -92,7 +92,7 @@ describe("Flujo público FRI", () => {
       );
       await user.selectOptions(
         screen.getByLabelText(/Transmisión/),
-        "Automática",
+        "Automática convencional (AT)",
       );
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       await screen.findByRole("heading", { name: "Condiciones comerciales" });
@@ -109,7 +109,7 @@ describe("Flujo público FRI", () => {
       );
       await user.selectOptions(
         screen.getByLabelText(/Forma de pago/),
-        "Transferencia bancaria",
+        "Contado",
       );
       await user.click(screen.getAllByRole("radio", { name: "No" })[1]);
       await user.click(screen.getByRole("button", { name: "Continuar" }));

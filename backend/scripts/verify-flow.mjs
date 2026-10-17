@@ -21,7 +21,7 @@ const fixture = {
   transmission: 'Automática',
   budget: 25000,
   purchaseDate: '2026-12-01',
-  payment: 'Transferencia bancaria',
+  payment: 'Contado',
   alternatives: false,
   usage: 'Personal',
   declaration: true,

@@ -7,7 +7,6 @@ import {
   Eye,
   LogOut,
   Menu,
-  ExternalLink,
   ChevronRight,
   ShieldCheck,
   X,
@@ -93,12 +92,12 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           aria-label="Menú del panel"
           className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-border bg-white transition-transform motion-reduce:transition-none lg:visible lg:translate-x-0 ${open ? "visible translate-x-0" : "invisible -translate-x-full"}`}
         >
-          <div className="flex items-center justify-between border-b border-border px-7 py-6">
+          <div className="relative flex items-center justify-center border-b border-border px-4 py-4">
             <Brand />
             <button
               aria-label="Cerrar menú"
               onClick={() => setOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-background lg:hidden"
+              className="absolute right-4 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-background lg:hidden"
             >
               <X size={20} />
             </button>
@@ -114,7 +113,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                   key={href}
                   href={href}
                   aria-current={pathname.startsWith(href) ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium ${pathname.startsWith(href) ? "bg-blue-50 text-primary" : "text-muted hover:bg-background"}`}
+                  className={`flex items-center gap-3 rounded-lg border-l-3 px-3 py-3 text-sm font-medium transition-colors ${pathname.startsWith(href) ? "border-l-accent bg-accent-soft text-primary" : "border-transparent text-muted hover:bg-background"}`}
                 >
                   <Icon size={18} />
                   {label}
@@ -166,7 +165,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-primary">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-primary">
                   {seller ? seller.name.slice(0, 2).toUpperCase() : "…"}
                 </span>
                 <div className="hidden text-xs sm:block">
@@ -205,18 +204,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
               {error}
             </p>
           )}
-          <main className="mx-auto max-w-[1500px] p-5 md:p-8">{children}</main>
-          <footer className="flex justify-between border-t border-border px-8 py-5 text-[11px] text-muted">
-            <span>TMB · Gestión de importaciones</span>
-            <Link
-              href="/fri"
-              target="_blank"
-              className="flex items-center gap-1"
-            >
-              Formulario público
-              <ExternalLink size={12} />
-            </Link>
-          </footer>
+          <main className="mx-auto max-w-[1500px] px-5 pb-4 pt-5 md:px-8 md:pb-5 md:pt-8">{children}</main>
         </div>
       </div>
     </PanelSessionContext.Provider>

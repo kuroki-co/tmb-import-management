@@ -2,8 +2,8 @@ import { Brand } from "@/components/ui/brand";
 import { FriForm } from "@/features/fri/components/fri-form";
 export default function FriPage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 py-7 md:px-8">
-      <header className="mb-9 flex items-center justify-between">
+    <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 md:px-8 md:pb-8 md:pt-6">
+      <header className="mb-6 flex items-center justify-between gap-6 border-b border-border pb-3 md:mb-7">
         <Brand />
         <span className="hidden text-xs text-muted sm:block">
           FICHA DE REQUERIMIENTO DE IMPORTACIÓN
@@ -17,7 +17,7 @@ export default function FriPage() {
           Cuéntanos qué deseas importar
         </h1>
         <p className="mt-2 text-sm text-muted">
-          Completa los cinco pasos. Al finalizar podrás descargar tu ficha FRI y
+          Completa los cuatro pasos. Al finalizar podrás descargar tu ficha FRI y
           el equipo de TMB revisará tu requerimiento.
         </p>
       </div>

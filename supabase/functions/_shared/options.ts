@@ -25,11 +25,10 @@ export const departments = [
   "Tumbes",
   "Ucayali",
 ] as const;
-export const fuels = ["Gasolina", "Diésel", "Eléctrico", "No aplica"];
+export const fuels = ["Gasolina", "Diésel", "Híbrido", "Eléctrico", "No aplica"];
 export const payments = [
-  "Transferencia bancaria",
-  "Tarjeta de crédito",
-  "Carta de crédito",
+  "Contado",
+  "Financiado",
 ];
 export const declarationText =
   "Declaro que la información proporcionada es veraz y solicito a TMB Importaciones e Inversiones Generales E.I.R.L. iniciar la investigación comercial, búsqueda y negociación internacional del vehículo descrito. Esta ficha no constituye una orden de compra y servirá de base para la posterior Carta de Autorización y el Contrato de Agencia Internacional de Compras (AIC).";

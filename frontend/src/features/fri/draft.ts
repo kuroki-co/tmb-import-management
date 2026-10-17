@@ -34,14 +34,19 @@ export function readDraft(
     const entries: [string, unknown][] = [];
     for (const name of stepFields.flat()) {
       const value: unknown = draft.values[name];
+      const migratedValue = name === "transmission" && value === "Automática"
+        ? "Automática convencional (AT)"
+        : name === "transmission" && value === "Manual"
+        ? "Manual o mecánica (MT)"
+        : value;
       const valid = numericFields.has(name)
-        ? typeof value === "number" && Number.isFinite(value)
+        ? typeof migratedValue === "number" && Number.isFinite(migratedValue)
         : name === "declaration"
-        ? typeof value === "boolean"
+        ? typeof migratedValue === "boolean"
         : enumFields.has(name)
-        ? friSchema.shape[name].safeParse(value).success
-        : typeof value === "string" && value.length <= 10000;
-      if (valid) entries.push([name, value]);
+        ? friSchema.shape[name].safeParse(migratedValue).success
+        : typeof migratedValue === "string" && migratedValue.length <= 10000;
+      if (valid) entries.push([name, migratedValue]);
     }
     const values = Object.fromEntries(entries) as Partial<FriFormValues>;
     if (values.documentType !== "Pasaporte") delete values.issuingCountry;

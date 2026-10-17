@@ -202,16 +202,16 @@ export interface components {
             color?: string;
             quantity: number;
             /** @enum {string} */
-            fuel: "Gasolina" | "Diésel" | "Eléctrico" | "No aplica";
+            fuel: "Gasolina" | "Diésel" | "Híbrido" | "Eléctrico" | "No aplica";
             /** @enum {string} */
-            transmission: "Automática" | "Manual";
+            transmission: "Manual o mecánica (MT)" | "Automática convencional (AT)" | "Manual automatizada (AMT)" | "Automática de doble embrague (DCT)" | "Transmisión continuamente variable (CVT)" | "Transmisión eléctrica (EV / e-Axle)" | "Transmisión híbrida (e-CVT / DHT)";
             power?: string;
             autonomy?: number;
             equipment?: string;
             budget: number;
             purchaseDate: string;
             /** @enum {string} */
-            payment: "Transferencia bancaria" | "Tarjeta de crédito" | "Carta de crédito";
+            payment: "Contado" | "Financiado";
             alternatives: boolean;
             /** @enum {string} */
             usage: "Personal" | "Comercial" | "Industrial";

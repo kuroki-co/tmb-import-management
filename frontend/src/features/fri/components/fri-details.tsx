@@ -119,7 +119,7 @@ export function FriDetails({
       {fri && (
         <>
           {receipt && (
-            <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-5">
+            <div className="mb-6 rounded-xl border border-accent-border bg-accent-soft p-5">
               <h2 className="text-sm font-semibold text-navy">¿Qué sigue?</h2>
               <p className="mt-2 text-sm leading-6 text-navy">
                 Tu solicitud empieza en «Pendiente a revisar». Descarga y

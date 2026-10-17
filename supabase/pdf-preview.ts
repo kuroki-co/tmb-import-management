@@ -14,7 +14,7 @@ const base = {
   year: 2026,
   quantity: 1,
   fuel: "Gasolina",
-  transmission: "Automática",
+  transmission: "Automática convencional (AT)",
   budget: 25000,
   declaration: true,
 };
@@ -28,7 +28,7 @@ for (const hasSupplier of [false, true]) {
         supplier: "Proveedor de prueba",
         incoterm: "FOB",
         purchaseDate: "2026-12-01",
-        payment: "Transferencia bancaria",
+        payment: "Contado",
         alternatives: false,
       }
       : {}),

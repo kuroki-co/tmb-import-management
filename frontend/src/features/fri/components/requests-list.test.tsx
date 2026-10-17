@@ -85,19 +85,19 @@ describe("Bandeja de solicitudes", () => {
     );
     expect(table.queryByText("Ángel Pérez")).toBeNull();
     expect(table.getByText("María López")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Limpiar" }));
+    await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
     await user.click(
       screen.getByRole("button", { name: "Filtrar: Pendiente a revisar" }),
     );
     expect(table.getByText("Ángel Pérez")).toBeTruthy();
     expect(table.queryByText("María López")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Limpiar" }));
+    await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
     await user.type(
       screen.getByRole("textbox", { name: "Buscar solicitudes" }),
       "angel",
     );
     expect(table.getByText("Ángel Pérez")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Limpiar" }));
+    await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Ordenar solicitudes" }),
       "budget",

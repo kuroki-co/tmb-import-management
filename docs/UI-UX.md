@@ -1,5 +1,13 @@
 # Revisión funcional de UI/UX
 
+## Identidad visual TMB
+
+El logo transparente está en `frontend/public/brand/tmb-logo.png` y se reutiliza mediante `Brand`. Sobre fondos oscuros conserva un soporte blanco para mantener legibles sus letras y su lema.
+
+La paleta se centraliza en `frontend/src/app/globals.css`: azul marino para acciones principales, turquesa para progreso y selección, verde de marca para acentos decorativos y fondos neutros para lectura. Los estados de error conservan rojo; el éxito usa un verde oscuro legible. No usar el verde claro de marca como texto sobre blanco.
+
+Contrastes calculados: botón principal/blanco 12.05:1, acento/fondo suave 4.53:1, texto secundario/fondo general 5.47:1 y éxito/fondo suave 6.50:1. Se mantienen foco visible y preferencias de movimiento reducido. La revisión visual en navegador sigue pendiente por el permiso de localhost indicado abajo.
+
 La revisión combina inspección del código y pruebas de interacción con React Testing Library en jsdom. No sustituye una revisión visual: el acceso del agente al navegador localhost está bloqueado por una preferencia guardada.
 
 ## Comportamientos comprobados del FRI

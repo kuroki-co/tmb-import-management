@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { departments } from "./options";
 import { documentRules } from "./document-rules";
+export const transmissions = [
+  "Manual o mecánica (MT)",
+  "Automática convencional (AT)",
+  "Manual automatizada (AMT)",
+  "Automática de doble embrague (DCT)",
+  "Transmisión continuamente variable (CVT)",
+  "Transmisión eléctrica (EV / e-Axle)",
+  "Transmisión híbrida (e-CVT / DHT)",
+] as const;
 const requiredText = (max = 200) =>
   z
     .string()
@@ -40,8 +49,8 @@ export const friSchema = z
       .int("Indica una cantidad entera")
       .min(1, "La cantidad mínima es 1")
       .max(10000, "La cantidad máxima es 10 000"),
-    fuel: z.enum(["Gasolina", "Diésel", "Eléctrico", "No aplica"]),
-    transmission: z.enum(["Automática", "Manual"]),
+    fuel: z.enum(["Gasolina", "Diésel", "Híbrido", "Eléctrico", "No aplica"]),
+    transmission: z.enum(transmissions),
     power: optionalText(80),
     autonomy: z
       .number("Indica una distancia válida")
@@ -59,9 +68,8 @@ export const friSchema = z
     purchaseDate: optionalText(10),
     payment: z.enum([
       "",
-      "Transferencia bancaria",
-      "Tarjeta de crédito",
-      "Carta de crédito",
+      "Contado",
+      "Financiado",
     ]).optional(),
     alternatives: z.enum(["Sí", "No"]).optional(),
     declaration: z

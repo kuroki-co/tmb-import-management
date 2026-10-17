@@ -2,10 +2,11 @@ import { Pencil } from "lucide-react";
 import type { FriFormValues } from "../schema";
 
 type SummaryData =
-  & Omit<Partial<FriFormValues>, "alternatives" | "hasSupplier">
+  & Omit<Partial<FriFormValues>, "alternatives" | "hasSupplier" | "payment">
   & {
     hasSupplier?: boolean | "Sí" | "No";
     alternatives?: boolean | "Sí" | "No";
+    payment?: string;
   };
 type Row = [string, string | number | undefined];
 export function FriSummary({
@@ -117,7 +118,7 @@ export function FriSummary({
                 type="button"
                 onClick={() => onEdit(index)}
                 aria-label={`Editar ${title.toLowerCase()}`}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-primary hover:bg-blue-50"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-primary hover:bg-accent-soft"
               >
                 <Pencil aria-hidden size={14} />
                 Editar
