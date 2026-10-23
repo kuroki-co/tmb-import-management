@@ -172,10 +172,12 @@ export class PdfService {
     ]);
     row([
       ["Cantidad", d.quantity],
-      ["Combustible", d.fuel],
+      ["Combustible", d.fuelGroup && d.fuelType
+        ? `${d.fuelGroup} · ${d.fuelType}`
+        : d.fuel],
       ["Transmisión", d.transmission],
       ["Potencia", d.power],
-      ["Autonomía (EV, km)", d.fuel === "Eléctrico" ? d.autonomy : "No aplica"],
+      ["Autonomía (EV, km)", d.fuelGroup === "EV" || d.fuel === "Eléctrico" ? d.autonomy : "No aplica"],
     ]);
     row([["Equipamiento requerido", d.equipment]]);
     y += 6;

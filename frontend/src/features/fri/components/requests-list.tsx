@@ -12,7 +12,9 @@ import {
 import { listFri, type Fri } from "../api";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { StatusBadge } from "./status-badge";
+const PAGE_SIZE = 10;
 export function RequestsList() {
   const [rows, setRows] = useState<Fri[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ export function RequestsList() {
   const [attempt, setAttempt] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [sort, setSort] = useState("recent");
+  const [page, setPage] = useState(1);
   const normalize = (value: string) =>
     value
       .normalize("NFD")
@@ -63,6 +66,12 @@ export function RequestsList() {
           ? Date.parse(a.createdAt) - Date.parse(b.createdAt)
           : Date.parse(b.createdAt) - Date.parse(a.createdAt),
     );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
   return (
     <>
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
@@ -80,6 +89,7 @@ export function RequestsList() {
             variant="secondary"
             disabled={loading}
             onClick={() => {
+              setPage(1);
               setLoading(true);
               setError("");
               setAttempt((v) => v + 1);
@@ -115,7 +125,10 @@ export function RequestsList() {
                 aria-label={`Filtrar: ${label}`}
                 aria-pressed={status === value}
                 disabled={!updatedAt}
-                onClick={() => setStatus(value)}
+                onClick={() => {
+                  setPage(1);
+                  setStatus(value);
+                }}
                 className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm transition-colors ${status === value ? "bg-accent-soft font-semibold text-primary" : "text-muted hover:bg-background"}`}
               >
                 {value || "Todas"}
@@ -132,14 +145,20 @@ export function RequestsList() {
             className={`${inputClass} py-2.5 pl-10`}
             placeholder="Código, cliente, documento o vehículo…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
           />
         </div>
         <Select
           aria-label="Estado de solicitud"
           className={`${inputClass} order-2 col-span-2 min-h-11 min-w-0 py-2.5 md:hidden`}
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => {
+            setPage(1);
+            setStatus(e.target.value);
+          }}
         >
           <option value="">Todos los estados</option>
           {(
@@ -156,7 +175,10 @@ export function RequestsList() {
           aria-label="Ordenar solicitudes"
           className={`${inputClass} order-3 min-h-11 min-w-0 py-2.5`}
           value={sort}
-          onChange={(event) => setSort(event.target.value)}
+          onChange={(event) => {
+            setPage(1);
+            setSort(event.target.value);
+          }}
         >
           <option value="recent">Más recientes</option>
           <option value="oldest">Más antiguas</option>
@@ -167,6 +189,7 @@ export function RequestsList() {
             disabled={!search && !status && sort === "recent"}
             className="order-4 min-h-11 justify-self-end whitespace-nowrap rounded-lg px-3 text-sm font-medium text-primary enabled:hover:bg-background"
             onClick={() => {
+              setPage(1);
               setSearch("");
               setStatus("");
               setSort("recent");
@@ -240,6 +263,7 @@ export function RequestsList() {
                 className="mt-5"
                 variant="secondary"
                 onClick={() => {
+                  setPage(1);
                   setSearch("");
                   setStatus("");
                 }}
@@ -260,7 +284,7 @@ export function RequestsList() {
         ) : (
           <>
             <div className="divide-y divide-border md:hidden">
-              {filtered.map((row) => (
+              {pageRows.map((row) => (
                 <article key={row.id} className="p-5">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-primary">
@@ -311,7 +335,7 @@ export function RequestsList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row) => (
+                  {pageRows.map((row) => (
                     <tr
                       key={row.id}
                       className="border-b border-border last:border-0 hover:bg-background/60"
@@ -363,13 +387,22 @@ export function RequestsList() {
             </div>
           </>
         )}
+        {!loading && filtered.length > PAGE_SIZE && (
+          <TablePagination
+            label="solicitudes FRI"
+            page={currentPage}
+            pageSize={PAGE_SIZE}
+            totalItems={filtered.length}
+            onPageChange={setPage}
+          />
+        )}
         <div
           aria-live="polite"
-          className="flex flex-wrap justify-between gap-x-2 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted"
+          className={`flex flex-wrap justify-between gap-x-2 gap-y-1 px-4 py-2 text-[11px] text-muted ${!loading && filtered.length > PAGE_SIZE ? "" : "border-t border-border"}`}
         >
           <span>
             {updatedAt
-              ? `${filtered.length} solicitud(es) mostradas`
+              ? `${filtered.length} solicitud(es) en total`
               : "Sin datos cargados"}
           </span>
           {updatedAt && (

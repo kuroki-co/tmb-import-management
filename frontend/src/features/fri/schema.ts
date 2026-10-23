@@ -10,6 +10,20 @@ export const transmissions = [
   "Transmisión eléctrica (EV / e-Axle)",
   "Transmisión híbrida (e-CVT / DHT)",
 ] as const;
+export const fuelGroups = ["EV", "Gas", "Gasolina"] as const;
+export const fuelTypes = [
+  "Híbrido enchufable",
+  "Híbrido autorregenerativo",
+  "EREV (alto kilometraje extendido)",
+  "GNV",
+  "GNL",
+  "Diésel",
+] as const;
+export const fuelTypesByGroup = {
+  EV: fuelTypes.slice(0, 3),
+  Gas: fuelTypes.slice(3, 5),
+  Gasolina: fuelTypes.slice(5, 6),
+} as const;
 const requiredText = (max = 200) =>
   z
     .string()
@@ -37,7 +51,8 @@ export const friSchema = z
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
     brand: requiredText(100),
     model: requiredText(100),
-    version: optionalText(100),
+    version: optionalText(300),
+    catalogVehicleId: z.union([z.uuid(), z.literal("")]).optional(),
     year: z
       .number("Indica el año")
       .int("El año debe ser un número entero")
@@ -49,7 +64,8 @@ export const friSchema = z
       .int("Indica una cantidad entera")
       .min(1, "La cantidad mínima es 1")
       .max(10000, "La cantidad máxima es 10 000"),
-    fuel: z.enum(["Gasolina", "Diésel", "Híbrido", "Eléctrico", "No aplica"]),
+    fuelGroup: z.enum(["", ...fuelGroups]),
+    fuelType: z.enum(["", ...fuelTypes]),
     transmission: z.enum(transmissions),
     power: optionalText(80),
     autonomy: z
@@ -77,13 +93,21 @@ export const friSchema = z
       .refine((v) => v, "Acepta la declaración para continuar"),
   })
   .superRefine((data, ctx) => {
+    const allowedFuelTypes = data.fuelGroup
+      ? fuelTypesByGroup[data.fuelGroup as keyof typeof fuelTypesByGroup]
+      : [];
+    if (!data.fuelGroup) {
+      ctx.addIssue({ code: "custom", path: ["fuelGroup"], message: "Selecciona un grupo" });
+    }
+    if (!data.fuelType || !allowedFuelTypes.includes(data.fuelType as never)) {
+      ctx.addIssue({ code: "custom", path: ["fuelType"], message: "Selecciona un tipo válido para el grupo" });
+    }
     if (data.hasSupplier === "Sí") {
       for (
         const key of [
           "supplier",
           "incoterm",
           "purchaseDate",
-          "payment",
           "alternatives",
         ] as const
       ) {
@@ -125,9 +149,12 @@ export const defaults: Partial<FriFormValues> = {
   mobile: "",
   brand: "",
   model: "",
+  catalogVehicleId: "",
   version: "",
   color: "",
   quantity: 1,
+  fuelGroup: "",
+  fuelType: "",
   power: "",
   equipment: "",
   purchaseDate: "",
@@ -155,7 +182,8 @@ export const stepFields: (keyof FriFormValues)[][] = [
     "year",
     "color",
     "quantity",
-    "fuel",
+    "fuelGroup",
+    "fuelType",
     "transmission",
     "power",
     "autonomy",
@@ -167,7 +195,6 @@ export const stepFields: (keyof FriFormValues)[][] = [
     "supplier",
     "incoterm",
     "purchaseDate",
-    "payment",
     "alternatives",
   ],
   ["declaration"],

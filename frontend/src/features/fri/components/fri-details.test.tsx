@@ -1,12 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { FriDetails } from "./fri-details";
 import type { Fri } from "../api";
-const { GET, POST } = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn() }));
+const { GET, POST, quotationStatus, quotationDownload } = vi.hoisted(() => ({
+  GET: vi.fn(),
+  POST: vi.fn(),
+  quotationStatus: vi.fn(),
+  quotationDownload: vi.fn(),
+}));
 vi.mock("@/lib/api/client", () => ({
   api: { GET, POST },
   errorMessage: () => "Error",
 }));
+vi.mock("../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api")>();
+  return {
+    ...actual,
+    quotationReceiptStatus: quotationStatus,
+    downloadQuotation: quotationDownload,
+  };
+});
 const fixture: Fri = {
   id: "test-id",
   createdAt: "2026-10-13T15:00:00Z",
@@ -35,6 +48,9 @@ const fixture: Fri = {
 beforeEach(() => {
   GET.mockReset();
   POST.mockReset();
+  quotationStatus.mockReset();
+  quotationDownload.mockReset();
+  quotationStatus.mockResolvedValue({ available: false, updatedAt: null });
   vi.stubGlobal(
     "URL",
     class extends URL {
@@ -76,5 +92,23 @@ describe("Acción automática al abrir detalle", () => {
     render(<FriDetails id="test-id" />);
     await screen.findByText("Cotizado");
     expect(screen.queryByText("En revisión")).toBeNull();
+  });
+  it("permite descargar la proforma cuando la cotización está lista", async () => {
+    sessionStorage.setItem("fri-receipt-test-id", "token");
+    quotationStatus.mockResolvedValue({
+      available: true,
+      updatedAt: "2026-10-23T15:00:00.000Z",
+    });
+    render(<FriDetails id="test-id" receipt />);
+    await screen.findByRole("button", { name: "Descargar cotización" });
+    expect(quotationStatus).toHaveBeenCalledWith("test-id", "token");
+    expect(screen.getByText("La cotización está lista para descargar.")).toBeTruthy();
+  });
+  it("permite volver a consultar si aún no hay cotización", async () => {
+    sessionStorage.setItem("fri-receipt-test-id", "token");
+    render(<FriDetails id="test-id" receipt />);
+    await screen.findByText("La cotización todavía no está disponible.");
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+    await waitFor(() => expect(quotationStatus).toHaveBeenCalledTimes(2));
   });
 });

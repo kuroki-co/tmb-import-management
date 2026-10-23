@@ -3,8 +3,22 @@ import { friSchema } from "./schema";
 const fields = friSchema.shape;
 export const friDataSchema = z.object({
   ...fields,
+  // Older records stored only `fuel`; new records retain group and subtype too.
+  fuelGroup: fields.fuelGroup.optional(),
+  fuelType: fields.fuelType.optional(),
+  fuel: z.string().optional(),
   alternatives: z.boolean().optional(),
   hasSupplier: z.boolean().optional(),
+  // Old submissions may contain the two transmission labels used by the earlier form.
+  transmission: z.enum([
+    ...friSchema.shape.transmission.options,
+    "Automática",
+    "Manual",
+  ]).transform((value) => value === "Automática"
+    ? "Automática convencional (AT)"
+    : value === "Manual"
+    ? "Manual o mecánica (MT)"
+    : value),
   email: z.string().optional(),
   usage: z.string().optional(),
   originCountry: z.string().optional(),
@@ -21,6 +35,15 @@ export const friDataSchema = z.object({
   power: fields.power.optional(),
   equipment: fields.equipment.optional(),
   supplier: fields.supplier.optional(),
+  catalogReference: z.object({
+    id: z.uuid(),
+    sourceType: z.enum(["supplier_excel", "tmb_web"]),
+    price: z.number().nonnegative().nullable(),
+    currency: z.string().max(3),
+    priceLabel: z.string().max(100).nullable(),
+    sourceUrl: z.url().nullable(),
+    updatedAt: z.string(),
+  }).optional(),
 });
 export const friRecordSchema = z.object({
   id: z.string(),

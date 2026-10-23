@@ -25,7 +25,6 @@ export const departments = [
   "Tumbes",
   "Ucayali",
 ] as const;
-export const fuels = ["Gasolina", "Diésel", "Híbrido", "Eléctrico", "No aplica"];
 export const payments = [
   "Contado",
   "Financiado",

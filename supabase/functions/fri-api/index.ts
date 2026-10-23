@@ -5,6 +5,16 @@ import {
   inputSchema,
   recordDataSchema,
 } from "../_shared/validation.ts";
+import {
+  calculateQuotation,
+  defaultQuotationSettings,
+  quotationInputSchema,
+  quotationSettingsSchema,
+} from "../_shared/quotation.ts";
+import {
+  getCatalogSyncStatus,
+  runCatalogSyncBatch,
+} from "../_shared/vehicle-catalog.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({
@@ -14,6 +24,44 @@ const requestSchema = z.discriminatedUnion("action", [
   }).strict(),
   z.object({ action: z.literal("list") }).strict(),
   z.object({ action: z.literal("profile") }).strict(),
+  z.object({
+    action: z.literal("catalog-list"),
+    query: z.string().max(60).optional(),
+  }).strict(),
+  z.object({ action: z.literal("catalog-get"), id: z.uuid() }).strict(),
+  z.object({
+    action: z.literal("catalog-admin-list"),
+    query: z.string().max(60).optional(),
+    source: z.enum(["all", "supplier_excel", "tmb_web"]).optional(),
+  }).strict(),
+  z.object({
+    action: z.literal("catalog-publish"),
+    id: z.uuid(),
+    published: z.boolean(),
+  }).strict(),
+  z.object({ action: z.literal("catalog-sync-status") }).strict(),
+  z.object({ action: z.literal("catalog-sync") }).strict(),
+  z.object({ action: z.literal("quotation-settings-get") }).strict(),
+  z.object({
+    action: z.literal("quotation-settings-update"),
+    values: z.unknown(),
+  }).strict(),
+  z.object({ action: z.literal("quotation-get"), id: z.uuid() }).strict(),
+  z.object({
+    action: z.literal("quotation-receipt"),
+    id: z.uuid(),
+    token: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict(),
+  z.object({
+    action: z.literal("quotation-pdf"),
+    id: z.uuid(),
+    token: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict(),
+  z.object({
+    action: z.literal("quotation-save"),
+    id: z.uuid(),
+    input: z.unknown(),
+  }).strict(),
   z.object({ action: z.literal("review"), id: z.uuid() }).strict(),
   z.object({
     action: z.literal("receipt"),
@@ -69,7 +117,7 @@ export async function handler(req: Request): Promise<Response> {
     "Cache-Control": "no-store",
     "Vary": "Origin",
     "Access-Control-Allow-Headers":
-      "authorization, apikey, content-type, x-client-info",
+      "authorization, apikey, content-type, x-client-info, x-catalog-sync-secret",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
   if (origin && allowed.includes(origin)) {
@@ -138,10 +186,41 @@ export async function handler(req: Request): Promise<Response> {
         );
       }
     };
-    // The platform supplies the forwarding address; document/mobile quotas also apply to creation.
+    // Hash the forwarded address once; public catalog reads and FRI submissions share rate-limit identity.
     const address = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
     const ip = await hash(address);
+    if (body.action === "catalog-list") {
+      await limit(`catalog:public:${ip}`, 60, 60);
+      const search = (body.query || "").replace(/[^\p{L}\p{N}\s&./-]/gu, " ").trim();
+      let query = admin.from("tmb_vehicle_catalog").select(
+        "id,source_type,brand,model,variant,year,vehicle_type,fuel,transmission,engine,drive_type,color,price,currency,price_label,image_url,source_url,source_reference,updated_at",
+      ).eq("is_active", true).eq("is_published", true)
+        .order("brand", { ascending: true }).order("model", { ascending: true })
+        .limit(50);
+      if (search) {
+        const term = `%${search.slice(0, 50)}%`;
+        query = query.or(`brand.ilike.${term},model.ilike.${term},variant.ilike.${term}`);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return json(data || []);
+    }
+    if (body.action === "catalog-get") {
+      await limit(`catalog:public:${ip}`, 60, 60);
+      const { data, error } = await admin.from("tmb_vehicle_catalog").select(
+        "id,source_type,brand,model,variant,year,vehicle_type,fuel,transmission,engine,drive_type,color,price,currency,price_label,image_url,source_url,source_reference,updated_at",
+      ).eq("id", body.id).eq("is_active", true).eq("is_published", true)
+        .maybeSingle();
+      if (error) throw error;
+      return json(data || null);
+    }
+    if (body.action === "catalog-sync" &&
+      Deno.env.get("VEHICLE_CATALOG_SYNC_SECRET") &&
+      req.headers.get("x-catalog-sync-secret") ===
+        Deno.env.get("VEHICLE_CATALOG_SYNC_SECRET")) {
+      return json(await runCatalogSyncBatch(admin));
+    }
     if (body.action === "create") {
       const validated = inputSchema.safeParse(body.data);
       if (!validated.success) {
@@ -170,8 +249,36 @@ export async function handler(req: Request): Promise<Response> {
         86400,
       );
       await limit("create:global", 500, 3600);
+      let requestData: Record<string, unknown> = validated.data;
+      if (validated.data.catalogVehicleId) {
+        const { data: catalogVehicle, error: catalogError } = await admin
+          .from("tmb_vehicle_catalog")
+          .select("id,source_type,price,currency,price_label,source_url,updated_at")
+          .eq("id", validated.data.catalogVehicleId)
+          .eq("is_active", true)
+          .eq("is_published", true)
+          .maybeSingle();
+        if (catalogError) throw catalogError;
+        if (!catalogVehicle) {
+          throw new HttpError(400, "El vehículo elegido ya no está disponible en el catálogo. Búscalo nuevamente o completa los datos manualmente.");
+        }
+        requestData = {
+          ...validated.data,
+          catalogReference: {
+            id: catalogVehicle.id,
+            sourceType: catalogVehicle.source_type,
+            price: catalogVehicle.price === null
+              ? null
+              : Number(catalogVehicle.price),
+            currency: catalogVehicle.currency,
+            priceLabel: catalogVehicle.price_label,
+            sourceUrl: catalogVehicle.source_url,
+            updatedAt: catalogVehicle.updated_at,
+          },
+        };
+      }
       const { data, error } = await admin.rpc("tmb_create_fri", {
-        p_data: validated.data,
+        p_data: requestData,
         p_token: body.receiptToken,
       });
       if (error) throw error;
@@ -179,7 +286,12 @@ export async function handler(req: Request): Promise<Response> {
     }
     let record: Fri | undefined;
     const token = "token" in body ? body.token : undefined;
-    if (body.action === "receipt" || (body.action === "pdf" && token)) {
+    if (
+      body.action === "receipt" ||
+      (body.action === "pdf" && token) ||
+      body.action === "quotation-receipt" ||
+      body.action === "quotation-pdf"
+    ) {
       await limit(`receipt:${ip}`, 60, 60);
       const { data, error } = await admin.rpc("tmb_read_receipt", {
         p_id: body.id,
@@ -189,6 +301,35 @@ export async function handler(req: Request): Promise<Response> {
       if (!data?.[0]) throw new HttpError(404, "Solicitud no encontrada");
       record = map(data[0]);
       if (body.action === "receipt") return json(record);
+      if (body.action === "quotation-receipt" || body.action === "quotation-pdf") {
+        const { data: quotation, error: quotationError } = await admin.from(
+          "tmb_quotations",
+        ).select("input,settings_snapshot,calculation,updated_at")
+          .eq("request_id", body.id).maybeSingle();
+        if (quotationError) throw quotationError;
+        if (body.action === "quotation-receipt") {
+          return json({
+            available: Boolean(quotation),
+            updatedAt: quotation?.updated_at ?? null,
+          });
+        }
+        if (!quotation) throw new HttpError(404, "La cotización todavía no está disponible");
+        const { QuotationPdfService } = await import("../_shared/quotation-pdf.ts");
+        const pdf = await new QuotationPdfService().generate(record, {
+          input: quotation.input,
+          settings: quotation.settings_snapshot,
+          calculation: quotation.calculation,
+          updatedAt: quotation.updated_at,
+        });
+        const safeCode = record.code.replace(/[^a-zA-Z0-9-]/g, "-");
+        return new Response(new Uint8Array(pdf), {
+          headers: {
+            ...headers,
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="PROFORMA-${safeCode}.pdf"`,
+          },
+        });
+      }
     } else {
       const auth = req.headers.get("authorization");
       if (!auth?.startsWith("Bearer ")) {
@@ -221,6 +362,129 @@ export async function handler(req: Request): Promise<Response> {
         });
       }
       await limit(`seller:${seller.id}`, 120, 60);
+      if (body.action === "catalog-admin-list") {
+        const search = (body.query || "").replace(/[^\p{L}\p{N}\s&./-]/gu, " ").trim();
+        let query = admin.from("tmb_vehicle_catalog").select(
+          "id,source_type,brand,model,variant,year,vehicle_type,fuel,transmission,engine,drive_type,color,price,currency,price_label,image_url,source_url,source_reference,updated_at,last_seen_at,is_active,is_published",
+        ).order("updated_at", { ascending: false }).limit(100);
+        if (body.source && body.source !== "all") {
+          query = query.eq("source_type", body.source);
+        }
+        if (search) {
+          const term = `%${search.slice(0, 50)}%`;
+          query = query.or(`brand.ilike.${term},model.ilike.${term},variant.ilike.${term}`);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return json(data || []);
+      }
+      if (body.action === "catalog-publish") {
+        const { data, error } = await admin.from("tmb_vehicle_catalog")
+          .update({
+            is_published: body.published,
+            published_at: body.published ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", body.id).eq("is_active", true).select("id").maybeSingle();
+        if (error) throw error;
+        if (!data) throw new HttpError(404, "Vehículo no encontrado");
+        return json({ success: true });
+      }
+      if (body.action === "catalog-sync-status") {
+        return json(await getCatalogSyncStatus(admin));
+      }
+      if (body.action === "catalog-sync") {
+        return json(await runCatalogSyncBatch(admin, seller.id));
+      }
+      if (body.action === "quotation-settings-get") {
+        const { data, error } = await admin.from("tmb_quotation_settings")
+          .select("config").eq("id", 1).maybeSingle();
+        if (error) throw error;
+        const settings = quotationSettingsSchema.safeParse(data?.config);
+        if (!settings.success) {
+          throw new Error("Quotation settings are missing or invalid");
+        }
+        return json(settings.data);
+      }
+      if (body.action === "quotation-settings-update") {
+        const settings = quotationSettingsSchema.safeParse(body.values);
+        if (!settings.success) {
+          throw new HttpError(400, "Revisa los valores de configuración");
+        }
+        const { error } = await admin.from("tmb_quotation_settings").upsert({
+          id: 1,
+          config: settings.data,
+          updated_at: new Date().toISOString(),
+          updated_by: seller.id,
+        });
+        if (error) throw error;
+        return json(settings.data);
+      }
+      if (body.action === "quotation-get") {
+        const { data, error } = await admin.from("tmb_quotations")
+          .select("id,request_id,input,settings_snapshot,calculation,created_at,updated_at")
+          .eq("request_id", body.id).maybeSingle();
+        if (error) throw error;
+        return json(data ? {
+          id: data.id,
+          requestId: data.request_id,
+          input: data.input,
+          settings: data.settings_snapshot,
+          calculation: data.calculation,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        } : null);
+      }
+      if (body.action === "quotation-save") {
+        const input = quotationInputSchema.safeParse(body.input);
+        if (!input.success) {
+          throw new HttpError(400, "Revisa los valores de la cotización");
+        }
+        const [
+          { data: baseRow, error: settingsError },
+          { data: friRow, error: friError },
+          { data: existingQuote, error: quotationError },
+        ] = await Promise.all([
+          admin.from("tmb_quotation_settings").select("config").eq("id", 1).maybeSingle(),
+          admin.from("tmb_fri_requests").select("id,status").eq("id", body.id).maybeSingle(),
+          admin.from("tmb_quotations").select("settings_snapshot").eq("request_id", body.id).maybeSingle(),
+        ]);
+        if (settingsError) throw settingsError;
+        if (friError) throw friError;
+        if (quotationError) throw quotationError;
+        if (!friRow) throw new HttpError(404, "Solicitud no encontrada");
+        if (!["En revisión", "Cotizado"].includes(friRow.status)) {
+          throw new HttpError(409, "La solicitud debe estar en revisión para cotizar");
+        }
+        const base = quotationSettingsSchema.parse(
+          existingQuote?.settings_snapshot ?? baseRow?.config ?? defaultQuotationSettings,
+        );
+        const calculation = calculateQuotation(input.data, base);
+        const { data, error } = await admin.from("tmb_quotations").upsert({
+          request_id: body.id,
+          seller_id: seller.id,
+          input: input.data,
+          settings_snapshot: base,
+          calculation,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "request_id" }).select(
+          "id,request_id,input,settings_snapshot,calculation,created_at,updated_at",
+        ).single();
+        if (error) throw error;
+        if (friRow.status !== "Cotizado") {
+          const { error: statusError } = await admin.from("tmb_fri_requests")
+            .update({ status: "Cotizado" }).eq("id", body.id).eq("status", "En revisión");
+          if (statusError) throw statusError;
+        }
+        return json({
+          id: data.id,
+          requestId: data.request_id,
+          input: data.input,
+          settings: data.settings_snapshot,
+          calculation: data.calculation,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        });
+      }
       if (body.action === "list") {
         const { data, error } = await user.from("tmb_fri_requests").select(
           "id,created_at,code,status,data",

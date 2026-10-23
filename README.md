@@ -1,6 +1,6 @@
 # TMB Import Management
 
-Formulario FRI y panel de vendedores con Next.js, React Hook Form, Zod y Tailwind. Backend activo en Supabase: PostgreSQL, Auth y Edge Functions con PDFKit.
+Formulario FRI, panel de vendedores y preparación de cotizaciones con Next.js, React Hook Form, Zod y Tailwind. Backend activo en Supabase: PostgreSQL, Auth y Edge Functions con PDFKit.
 
 El historial local se migró conservando datos, códigos y recibos. `backend/` y su volumen PostgreSQL se mantienen como respaldo; no necesitan ejecutarse. Ver [documentación Supabase](supabase/README.md).
 
@@ -35,4 +35,4 @@ Formulario de cuatro pasos, confirmación con resumen, persistencia real, págin
 
 El comprobante público utiliza un token almacenado en la sesión del navegador que hizo el envío. Los vendedores autenticados pueden consultar el detalle y el PDF. La autenticación usa Supabase Auth y requiere HTTPS en producción.
 
-Cada FRI recibe automáticamente un código único y consecutivo TMB-000001, visible en el detalle y el PDF. Al abrir el detalle un vendedor autenticado, una solicitud pendiente pasa automáticamente a En revisión. Los estados no se editan manualmente ni retroceden al consultar otra vez. Correo, WhatsApp y recordatorios no están activados. Las acciones para cotizar y confirmar compra, reparto por vendedor y paginación quedan para la siguiente etapa. Las reglas del formulario están en `docs/FRI.md`; cada aplicación conserva sus skills en `.agents/skills/` y su propio lockfile.
+Cada FRI recibe automáticamente un código único y consecutivo TMB-000001, visible en el detalle y el PDF. Al abrir el detalle un vendedor autenticado, una solicitud pendiente pasa automáticamente a En revisión. El panel permite preparar una cotización desde el FRI, editar excepciones aisladas por cotización y administrar parámetros base, incluido el tipo de cambio. Las reglas y fórmulas están en `docs/COTIZACIONES.md`. Aplicar la migración nueva de cotizaciones antes de usar las operaciones en Supabase. Correo, WhatsApp y recordatorios no están activados; reparto por vendedor y paginación quedan para otra etapa. Las reglas del formulario están en `docs/FRI.md`; cada aplicación conserva sus skills en `.agents/skills/` y su propio lockfile.

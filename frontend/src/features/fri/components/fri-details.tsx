@@ -1,11 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle2, FileText, RefreshCw } from "lucide-react";
 
 import { Brand } from "@/components/ui/brand";
 import { Button } from "@/components/ui/button";
-import { loadFri, downloadFri, type Fri } from "../api";
+import {
+  loadFri,
+  downloadFri,
+  downloadQuotation,
+  quotationReceiptStatus,
+  type Fri,
+} from "../api";
 import { FriSummary } from "./fri-summary";
 import { StatusBadge } from "./status-badge";
 import { getReceiptToken } from "../receipt-storage";
@@ -20,6 +26,12 @@ export function FriDetails({
   const [pdf, setPdf] = useState("");
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [quoteAvailable, setQuoteAvailable] = useState(false);
+  const [quoteChecking, setQuoteChecking] = useState(false);
+  const [quoteDownloading, setQuoteDownloading] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+  const [quoteAttempt, setQuoteAttempt] = useState(0);
+  const friStatus = fri?.status;
   useEffect(() => {
     let active = true;
     let objectUrl = "";
@@ -57,6 +69,68 @@ export function FriDetails({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [id, receipt, attempt]);
+
+  useEffect(() => {
+    if (!receipt || !friStatus) return;
+    let active = true;
+    let foundQuotation = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const token = getReceiptToken(id);
+    if (!token) return;
+
+    const check = async () => {
+      if (active) setQuoteChecking(true);
+      try {
+        const result = await quotationReceiptStatus(id, token);
+        if (!active) return;
+        setQuoteAvailable(result.available);
+        foundQuotation = result.available;
+        setQuoteError("");
+      } catch (e) {
+        if (!active) return;
+        setQuoteError(
+          e instanceof Error ? e.message : "No se pudo consultar la cotización.",
+        );
+      } finally {
+        if (active) {
+          setQuoteChecking(false);
+          if (!foundQuotation) timer = setTimeout(() => void check(), 30_000);
+        }
+      }
+    };
+    void check();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [id, receipt, friStatus, quoteAttempt]);
+
+  const handleQuotationDownload = async () => {
+    const token = getReceiptToken(id);
+    if (!token) {
+      setQuoteError("No encontramos el acceso privado a esta cotización.");
+      return;
+    }
+    setQuoteDownloading(true);
+    setQuoteError("");
+    try {
+      const file = await downloadQuotation(id, token);
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `PROFORMA-${fri?.code || id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    } catch (e) {
+      setQuoteError(
+        e instanceof Error ? e.message : "No se pudo descargar la proforma.",
+      );
+    } finally {
+      setQuoteDownloading(false);
+    }
+  };
   const body = (
     <>
       <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
@@ -95,6 +169,16 @@ export function FriDetails({
             Descargar PDF
           </a>
         )}
+        {receipt && quoteAvailable && (
+          <Button
+            onClick={handleQuotationDownload}
+            disabled={quoteDownloading}
+            className="inline-flex items-center gap-2"
+          >
+            <Download size={16} />
+            {quoteDownloading ? "Preparando proforma…" : "Descargar cotización"}
+          </Button>
+        )}
       </div>
       {error && (
         <div
@@ -123,13 +207,48 @@ export function FriDetails({
               <h2 className="text-sm font-semibold text-navy">¿Qué sigue?</h2>
               <p className="mt-2 text-sm leading-6 text-navy">
                 Tu solicitud empieza en «Pendiente a revisar». Descarga y
-                conserva el PDF como constancia mientras TMB evalúa tu
-                requerimiento.
+                conserva el PDF como constancia mientras TMB prepara y revisa
+                la cotización de tu requerimiento.
               </p>
               <p className="mt-2 text-xs leading-5 text-navy">
-                El PDF se descarga aquí; no se enviará una copia por correo.
+                Cuando la cotización esté lista podrás descargar la proforma
+                desde esta misma página. No se enviará una copia por correo.
               </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {quoteAvailable ? (
+                  <span role="status" className="text-sm font-medium text-navy">
+                    La cotización está lista para descargar.
+                  </span>
+                ) : (
+                  <span role="status" className="text-sm text-navy">
+                    {quoteChecking
+                      ? "Consultando si la cotización está lista…"
+                      : "La cotización todavía no está disponible."}
+                  </span>
+                )}
+                <Button
+                  variant="secondary"
+                  disabled={quoteChecking}
+                  onClick={() => setQuoteAttempt((value) => value + 1)}
+                  className="inline-flex items-center gap-2"
+                >
+                  <RefreshCw size={14} className={quoteChecking ? "animate-spin" : ""} />
+                  Actualizar
+                </Button>
+              </div>
+              {quoteError && (
+                <p role="alert" className="mt-2 text-sm text-danger">{quoteError}</p>
+              )}
             </div>
+          )}
+          {!receipt && fri && (
+            <Link
+              href={`/panel/cotizaciones/${fri.id}`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
+            >
+              <FileText size={16} />
+              {fri.status === "Cotizado" ? "Ver cotización" : "Preparar cotización"}
+            </Link>
           )}
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
             {[

@@ -46,21 +46,22 @@ export async function submitFri(values: FriFormValues) {
     supplier,
     incoterm,
     purchaseDate,
-    payment,
+    catalogVehicleId,
     ...rest
   } = values;
   const body = {
     ...rest,
+    ...(catalogVehicleId ? { catalogVehicleId } : {}),
     hasSupplier: hasSupplier === "Sí",
     ...(hasSupplier === "Sí"
       ? {
         supplier,
         incoterm,
         purchaseDate,
-        payment,
         alternatives: alternatives === "Sí",
       }
       : {}),
+    payment: "Contado",
     declaration: true as const,
     representative:
       values.documentType === "RUC" && values.documentNumber.startsWith("20")
@@ -69,7 +70,7 @@ export async function submitFri(values: FriFormValues) {
     issuingCountry: values.documentType === "Pasaporte"
       ? values.issuingCountry
       : undefined,
-    autonomy: values.fuel === "Eléctrico" ? values.autonomy : undefined,
+    autonomy: values.fuelGroup === "EV" ? values.autonomy : undefined,
   };
   if (usesSupabase()) {
     const receipt = receiptSchema.parse(
@@ -143,4 +144,36 @@ export async function downloadFri(id: string, token?: string): Promise<Blob> {
     );
   }
   return result.data;
+}
+
+export async function quotationReceiptStatus(id: string, token: string) {
+  if (!usesSupabase()) return { available: false, updatedAt: null as string | null };
+  const result = await callFriFunction(
+    { action: "quotation-receipt", id, token },
+  );
+  if (
+    !result ||
+    typeof result !== "object" ||
+    typeof (result as { available?: unknown }).available !== "boolean" ||
+    !(
+      (result as { updatedAt?: unknown }).updatedAt === null ||
+      typeof (result as { updatedAt?: unknown }).updatedAt === "string"
+    )
+  ) {
+    throw new Error("No se pudo consultar el estado de la cotización");
+  }
+  return result as { available: boolean; updatedAt: string | null };
+}
+
+export async function downloadQuotation(id: string, token: string) {
+  if (!usesSupabase()) {
+    throw new Error("La descarga de cotizaciones requiere el servicio Supabase");
+  }
+  const result = await callFriFunction(
+    { action: "quotation-pdf", id, token },
+    false,
+    true,
+  );
+  if (!(result instanceof Blob)) throw new Error("No se pudo descargar la proforma");
+  return result;
 }

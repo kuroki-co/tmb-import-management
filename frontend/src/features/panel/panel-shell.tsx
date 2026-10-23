@@ -10,6 +10,8 @@ import {
   ChevronRight,
   ShieldCheck,
   X,
+  Settings2,
+  CarFront,
 } from "lucide-react";
 import { Brand } from "@/components/ui/brand";
 import { currentSeller, logout, type Seller } from "@/features/auth/api";
@@ -80,6 +82,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       icon: ClipboardList,
     },
     { href: "/panel/formulario", label: "Vista previa del FRI", icon: Eye },
+    { href: "/panel/configuracion/cotizacion", label: "Parámetros de cotización", icon: Settings2 },
+    { href: "/panel/catalogo-vehiculos", label: "Catálogo de vehículos", icon: CarFront },
   ];
   return (
     <PanelSessionContext.Provider
@@ -158,6 +162,12 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
               <span className="text-sm font-medium">
                 {pathname.startsWith("/panel/formulario")
                   ? "Vista previa del FRI"
+                  : pathname.startsWith("/panel/configuracion/cotizacion")
+                    ? "Parámetros de cotización"
+                    : pathname.startsWith("/panel/catalogo-vehiculos")
+                      ? "Catálogo de vehículos"
+                    : pathname.startsWith("/panel/cotizaciones/")
+                      ? "Preparar cotización"
                   : pathname !== "/panel/solicitudes"
                     ? "Detalle de solicitud"
                     : "Solicitudes FRI"}

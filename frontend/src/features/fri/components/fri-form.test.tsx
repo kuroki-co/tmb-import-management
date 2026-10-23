@@ -28,7 +28,8 @@ const fixture: FriFormValues = {
   year: 2026,
   color: "",
   quantity: 1,
-  fuel: "Gasolina",
+  fuelGroup: "Gasolina",
+  fuelType: "Diésel",
   transmission: "Automática convencional (AT)",
   power: "",
   equipment: "",
@@ -61,6 +62,33 @@ beforeEach(() => {
   submitFri.mockReset();
 });
 describe("Flujo público FRI", () => {
+  it("limita los tipos disponibles al grupo de combustible seleccionado", async () => {
+    const { user } = await open(fixture, 1);
+    const group = screen.getByLabelText(/Grupo de combustible/) as HTMLSelectElement;
+    const subtype = screen.getByLabelText(/^Tipo de combustible/) as HTMLSelectElement;
+
+    await user.selectOptions(group, "EV");
+    expect(Array.from(subtype.options).map((option) => option.value)).toEqual([
+      "",
+      "Híbrido enchufable",
+      "Híbrido autorregenerativo",
+      "EREV (alto kilometraje extendido)",
+    ]);
+
+    await user.selectOptions(group, "Gas");
+    expect(Array.from(subtype.options).map((option) => option.value)).toEqual([
+      "",
+      "GNV",
+      "GNL",
+    ]);
+
+    await user.selectOptions(group, "Gasolina");
+    expect(Array.from(subtype.options).map((option) => option.value)).toEqual([
+      "",
+      "Diésel",
+    ]);
+  });
+
   it.each([false, true])(
     "completa los cuatro pasos desde cero (preview=%s)",
     async (preview) => {
@@ -83,13 +111,11 @@ describe("Flujo público FRI", () => {
       await screen.findByRole("heading", {
         name: "¿Qué vehículo deseas importar?",
       });
-      await user.type(screen.getByLabelText(/^Marca/), "Toyota");
+      await user.type(screen.getByLabelText(/^Marca\*/), "Toyota");
       await user.type(screen.getByLabelText(/^Modelo/), "Corolla");
       await user.type(screen.getByLabelText(/^Año/), "2026");
-      await user.selectOptions(
-        screen.getByLabelText(/Tipo de combustible/),
-        "Gasolina",
-      );
+      await user.selectOptions(screen.getByLabelText(/Grupo de combustible/), "Gasolina");
+      await user.selectOptions(screen.getByLabelText(/^Tipo de combustible/), "Diésel");
       await user.selectOptions(
         screen.getByLabelText(/Transmisión/),
         "Automática convencional (AT)",
@@ -107,10 +133,9 @@ describe("Flujo público FRI", () => {
         screen.getByLabelText(/Fecha estimada de compra/),
         "2026-12-01",
       );
-      await user.selectOptions(
-        screen.getByLabelText(/Forma de pago/),
-        "Contado",
-      );
+      expect(
+        screen.queryByRole("combobox", { name: /Forma de pago/ }),
+      ).toBeNull();
       await user.click(screen.getAllByRole("radio", { name: "No" })[1]);
       await user.click(screen.getByRole("button", { name: "Continuar" }));
       await screen.findByRole("heading", {
@@ -225,15 +250,16 @@ describe("Flujo público FRI", () => {
     await screen.findByText("Acepta la declaración para continuar");
     expect(submitFri).not.toHaveBeenCalled();
   });
-  it("un campo EV oculto deja de bloquear el avance al cambiar a gasolina", async () => {
+  it("un campo EV oculto deja de bloquear el avance al cambiar de grupo", async () => {
     const { user } = await open(
-      { ...fixture, fuel: "Eléctrico", autonomy: -1 },
+      { ...fixture, fuelGroup: "EV", fuelType: "Híbrido enchufable", autonomy: -1 },
       1,
     );
     await user.selectOptions(
-      screen.getByLabelText(/Tipo de combustible/),
+      screen.getByLabelText(/Grupo de combustible/),
       "Gasolina",
     );
+    await user.selectOptions(screen.getByLabelText(/^Tipo de combustible/), "Diésel");
     expect(screen.queryByLabelText(/Autonomía EV/)).toBeNull();
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByRole("heading", { name: "Condiciones comerciales" });

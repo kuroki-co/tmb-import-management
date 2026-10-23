@@ -13,7 +13,8 @@ const valid = {
   model: "Corolla",
   year: 2026,
   quantity: 1,
-  fuel: "Gasolina",
+  fuelGroup: "Gasolina",
+  fuelType: "Diésel",
   transmission: "Automática convencional (AT)",
   budget: 25000,
   purchaseDate: "2026-12-01",
@@ -29,6 +30,18 @@ function assert(value: unknown, message: string) {
 }
 Deno.test("validación autoritativa de documentos y campos condicionales", () => {
   assert(inputSchema.safeParse(valid).success, "valid DNI");
+  assert(
+    !inputSchema.safeParse({ ...valid, fuelGroup: "Gas", fuelType: "Diésel" }).success,
+    "diesel cannot be selected in the Gas group",
+  );
+  assert(
+    inputSchema.safeParse({ ...valid, fuelGroup: "Gas", fuelType: "GNV" }).success,
+    "GNV belongs to Gas",
+  );
+  assert(
+    inputSchema.safeParse({ ...valid, fuelGroup: "EV", fuelType: "EREV (alto kilometraje extendido)" }).success,
+    "EREV belongs to EV",
+  );
   for (const documentNumber of ["1234567", "123456789", "1234567A"]) {
     assert(
       !inputSchema.safeParse({ ...valid, documentNumber }).success,

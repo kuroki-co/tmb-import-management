@@ -5,7 +5,8 @@ const numericFields = new Set(["year", "quantity", "autonomy", "budget"]);
 const enumFields = new Set([
   "documentType",
   "department",
-  "fuel",
+  "fuelGroup",
+  "fuelType",
   "transmission",
   "payment",
   "alternatives",
@@ -56,7 +57,7 @@ export function readDraft(
     ) {
       delete values.representative;
     }
-    if (values.fuel !== "Eléctrico") delete values.autonomy;
+    if (values.fuelGroup !== "EV") delete values.autonomy;
     return {
       step: draft.version === 1 ? Math.min(draft.step, 2) : draft.step,
       values,

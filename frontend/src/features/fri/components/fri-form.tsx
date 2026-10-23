@@ -1,6 +1,6 @@
 "use client";
 import { Select } from "@/components/ui/select";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -13,13 +13,15 @@ import {
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
-import { declarationText, departments, fuels, payments } from "../options";
-import { defaults, type FriFormValues, friSchema, stepFields, transmissions } from "../schema";
+import { declarationText, departments } from "../options";
+import { defaults, type FriFormValues, friSchema, stepFields, transmissions, fuelGroups, fuelTypesByGroup } from "../schema";
 import { submitFri } from "../api";
 import { documentRules } from "../document-rules";
 import { useFriDraft } from "../use-fri-draft";
 import { FriSummary } from "./fri-summary";
 import { rememberReceipt } from "../receipt-storage";
+import { CatalogVehiclePicker } from "@/features/vehicle-catalog/components/catalog-vehicle-picker";
+import { getCatalogVehicle, type CatalogVehicle } from "@/features/vehicle-catalog/api";
 const steps = [
   "Cliente",
   "Vehículo",
@@ -44,6 +46,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   const [checking, setChecking] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
+  const [selectedCatalog, setSelectedCatalog] = useState<CatalogVehicle | null>(null);
   const checkingRef = useRef(false);
   const sendingRef = useRef(false);
   const resetDialog = useRef<HTMLDialogElement>(null);
@@ -91,10 +94,64 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   const documentType = useWatch({ control, name: "documentType" });
   const number = useWatch({ control, name: "documentNumber" }) || "";
   const hasSupplier = useWatch({ control, name: "hasSupplier" });
-  const fuel = useWatch({ control, name: "fuel" });
+  const catalogVehicleId = useWatch({ control, name: "catalogVehicleId" });
+  const fuelGroup = useWatch({ control, name: "fuelGroup" });
   const corporate = documentType === "RUC" && number.startsWith("20");
   const documentRule = documentRules[documentType] ?? documentRules.DNI;
   const documentRegistration = register("documentNumber");
+  useEffect(() => {
+    if (!catalogVehicleId || selectedCatalog?.id === catalogVehicleId) return;
+    let active = true;
+    getCatalogVehicle(catalogVehicleId)
+      .then((vehicle) => {
+        if (active) setSelectedCatalog(vehicle);
+      })
+      .catch(() => {
+        if (active) setSelectedCatalog(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [catalogVehicleId, selectedCatalog?.id]);
+  const selectCatalogVehicle = useCallback((vehicle: CatalogVehicle) => {
+    setSelectedCatalog(vehicle);
+    setValue("catalogVehicleId", vehicle.id, { shouldDirty: true });
+    setValue("brand", vehicle.brand, { shouldDirty: true });
+    setValue("model", vehicle.model.slice(0, 100), { shouldDirty: true });
+    if (vehicle.variant) setValue("version", vehicle.variant.slice(0, 300), { shouldDirty: true });
+    if (vehicle.year) setValue("year", vehicle.year, { shouldDirty: true });
+    const fuel = vehicle.fuel?.toLowerCase();
+    setValue("fuelGroup", "", { shouldDirty: true });
+    setValue("fuelType", "", { shouldDirty: true });
+    setValue("autonomy", undefined, { shouldDirty: true });
+    if (fuel?.includes("erev") || fuel?.includes("range extender") || fuel?.includes("增程")) {
+      setValue("fuelGroup", "EV", { shouldDirty: true });
+      setValue("fuelType", "EREV (alto kilometraje extendido)", { shouldDirty: true });
+    } else if (fuel?.includes("plug-in") || fuel?.includes("phev") || fuel?.includes("插电")) {
+      setValue("fuelGroup", "EV", { shouldDirty: true });
+      setValue("fuelType", "Híbrido enchufable", { shouldDirty: true });
+    } else if (fuel?.includes("hybrid") || fuel?.includes("híbrido") || fuel?.includes("混动")) {
+      setValue("fuelGroup", "EV", { shouldDirty: true });
+      setValue("fuelType", "Híbrido autorregenerativo", { shouldDirty: true });
+    } else if (fuel?.includes("gnv") || fuel?.includes("cng")) {
+      setValue("fuelGroup", "Gas", { shouldDirty: true });
+      setValue("fuelType", "GNV", { shouldDirty: true });
+    } else if (fuel?.includes("gnl") || fuel?.includes("lng")) {
+      setValue("fuelGroup", "Gas", { shouldDirty: true });
+      setValue("fuelType", "GNL", { shouldDirty: true });
+    } else if (fuel?.includes("diesel") || fuel?.includes("diésel")) {
+      setValue("fuelGroup", "Gasolina", { shouldDirty: true });
+      setValue("fuelType", "Diésel", { shouldDirty: true });
+    }
+    const transmission = vehicle.transmission?.toLowerCase();
+    if (transmission?.includes("dct") || transmission?.includes("doble embrague")) setValue("transmission", "Automática de doble embrague (DCT)", { shouldDirty: true });
+    else if (transmission?.includes("cvt") && (fuel?.includes("hybrid") || fuel?.includes("híbrido"))) setValue("transmission", "Transmisión híbrida (e-CVT / DHT)", { shouldDirty: true });
+    else if (transmission?.includes("cvt")) setValue("transmission", "Transmisión continuamente variable (CVT)", { shouldDirty: true });
+    else if (transmission?.includes("amt") || transmission?.includes("automatizada")) setValue("transmission", "Manual automatizada (AMT)", { shouldDirty: true });
+    else if (transmission?.includes("manual") || transmission?.includes("mt")) setValue("transmission", "Manual o mecánica (MT)", { shouldDirty: true });
+    else if (transmission?.includes("automatic") || transmission?.includes("automática") || transmission === "at") setValue("transmission", "Automática convencional (AT)", { shouldDirty: true });
+    else if (transmission?.includes("electric") || transmission?.includes("eléctrica") || transmission === "ev") setValue("transmission", "Transmisión eléctrica (EV / e-Axle)", { shouldDirty: true });
+  }, [setValue]);
   const hints: Partial<Record<keyof FriFormValues, string>> = {
     version:
       "Por ejemplo: XLE o versión de equipamiento. Puedes dejarlo en blanco.",
@@ -177,11 +234,12 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                 ]);
               },
             }
-            : name === "fuel"
+            : name === "fuelGroup"
             ? {
               onChange: () => {
+                setValue("fuelType", "", { shouldDirty: true });
                 setValue("autonomy", undefined);
-                clearErrors("autonomy");
+                clearErrors(["fuelType", "autonomy"]);
               },
             }
             : {},
@@ -418,6 +476,30 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           disabled={isSubmitting || registered}
           className="grid min-w-0 gap-x-6 gap-y-5 md:grid-cols-2"
         >
+          {step === 1 && (
+            <CatalogVehiclePicker
+              value={catalogVehicleId}
+              disabled={isSubmitting || registered}
+              onSelect={selectCatalogVehicle}
+              onClear={() => {
+                setSelectedCatalog(null);
+                setValue("catalogVehicleId", "", { shouldDirty: true });
+              }}
+            />
+          )}
+          {step === 1 && selectedCatalog && (
+            <div className="md:col-span-2 rounded-xl border border-accent-border bg-accent-soft p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">FOB referencial</p>
+              {selectedCatalog.price !== null ? (
+                <p className="mt-1 text-lg font-semibold text-navy">
+                  {selectedCatalog.currency} {selectedCatalog.price.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm font-medium text-navy">No hay un precio referencial publicado para este vehículo.</p>
+              )}
+              <p className="mt-1 text-xs leading-5 text-muted">Es un valor referencial del catálogo; la cotización formal se preparará y enviará después en PDF.</p>
+            </div>
+          )}
           {step === 0 && (
             <>
               {select("documentType", "Tipo de documento", [
@@ -486,10 +568,15 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               {field("year", "Año", true, "number")}
               {field("color", "Color")}
               {field("quantity", "Cantidad", true, "number")}
-              {select("fuel", "Tipo de combustible", fuels)}
+              {select("fuelGroup", "Grupo de combustible", fuelGroups)}
+              {select(
+                "fuelType",
+                fuelGroup ? "Tipo de combustible" : "Tipo de combustible · elige primero un grupo",
+                fuelGroup ? fuelTypesByGroup[fuelGroup] : [],
+              )}
               {select("transmission", "Transmisión", transmissions)}
               {field("power", "Potencia (indica unidad)")}
-              {fuel === "Eléctrico" &&
+              {fuelGroup === "EV" &&
                 field("autonomy", "Autonomía EV (km)", false, "number")}
               {textArea("equipment", "Equipamiento requerido")}
             </>
@@ -524,13 +611,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                               setValue("supplier", "");
                               setValue("incoterm", "");
                               setValue("purchaseDate", "");
-                              setValue("payment", "");
                               setValue("alternatives", undefined);
                               clearErrors([
                                 "supplier",
                                 "incoterm",
                                 "purchaseDate",
-                                "payment",
                                 "alternatives",
                               ]);
                             }
@@ -567,7 +652,9 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                     true,
                     "date",
                   )}
-                  {select("payment", "Forma de pago", payments)}
+                  <div className="md:col-span-2 rounded-lg bg-background px-4 py-3 text-sm text-foreground">
+                    <span className="font-medium">Forma de pago:</span> Al contado
+                  </div>
                   <fieldset
                     aria-describedby={errors.alternatives
                       ? "alternatives-error"
@@ -617,6 +704,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               <div className="md:col-span-2">
                 <FriSummary
                   data={getValues()}
+                  catalogVehicle={selectedCatalog}
                   compact
                   onEdit={(target) => {
                     setEditing(true);

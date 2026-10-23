@@ -1,20 +1,31 @@
 import { Pencil } from "lucide-react";
+import type { CatalogVehicle } from "@/features/vehicle-catalog/api";
 import type { FriFormValues } from "../schema";
 
 type SummaryData =
   & Omit<Partial<FriFormValues>, "alternatives" | "hasSupplier" | "payment">
   & {
+    fuel?: string;
     hasSupplier?: boolean | "Sí" | "No";
     alternatives?: boolean | "Sí" | "No";
     payment?: string;
+    catalogReference?: {
+      sourceType: "supplier_excel" | "tmb_web";
+      price: number | null;
+      currency: string;
+      priceLabel: string | null;
+      sourceUrl: string | null;
+    };
   };
 type Row = [string, string | number | undefined];
 export function FriSummary({
   data: d,
+  catalogVehicle,
   compact = false,
   onEdit,
 }: {
   data: SummaryData;
+  catalogVehicle?: CatalogVehicle | null;
   compact?: boolean;
   onEdit?: (step: number) => void;
 }) {
@@ -25,6 +36,15 @@ export function FriSummary({
   const date = d.purchaseDate
     ? new Date(`${d.purchaseDate}T00:00:00`).toLocaleDateString("es-PE")
     : undefined;
+  const catalogReference = d.catalogReference ?? (catalogVehicle
+    ? {
+      sourceType: catalogVehicle.source,
+      price: catalogVehicle.price,
+      currency: catalogVehicle.currency,
+      priceLabel: catalogVehicle.priceLabel,
+      sourceUrl: catalogVehicle.sourceUrl,
+    }
+    : undefined);
   const sections: { title: string; rows: Row[] }[] = [
     {
       title: "Datos del cliente",
@@ -56,14 +76,24 @@ export function FriSummary({
         ["Marca y modelo", `${d.brand || ""} ${d.model || ""}`.trim()],
         ["Año", d.year],
         ["Cantidad", d.quantity],
-        ["Combustible", d.fuel],
+        ["Combustible", d.fuelGroup && d.fuelType
+          ? `${d.fuelGroup} · ${d.fuelType}`
+          : d.fuel],
         ["Transmisión", d.transmission],
+        ...(catalogReference
+          ? [[
+            `FOB referencial${catalogReference.currency ? ` (${catalogReference.currency})` : ""}`,
+            catalogReference.price === null
+              ? "Sin precio publicado"
+              : `${catalogReference.currency} ${catalogReference.price.toLocaleString("es-PE", { minimumFractionDigits: 2 })}`,
+          ] as Row]
+          : []),
         ...(!compact
           ? ([
             ["Versión", d.version],
             ["Color", d.color],
             ["Potencia", d.power],
-            ...(d.fuel === "Eléctrico"
+            ...(d.fuelGroup === "EV" || d.fuel === "Eléctrico"
               ? [["Autonomía EV (km)", d.autonomy]]
               : []),
             ["Equipamiento", d.equipment],
@@ -89,7 +119,7 @@ export function FriSummary({
             ["Proveedor de preferencia", d.supplier],
             ["Incoterm", d.incoterm],
             ["Fecha estimada de compra", date],
-            ["Forma de pago", d.payment],
+            ["Forma de pago", d.payment || "Contado"],
             [
               "Alternativas equivalentes",
               typeof d.alternatives === "boolean"

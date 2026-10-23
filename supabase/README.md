@@ -12,6 +12,10 @@ El frontend selecciona explícitamente el proveedor con `NEXT_PUBLIC_BACKEND_PRO
 - FRI público con validación autoritativa, límites persistentes por IP/documento/celular y límite global. Token aleatorio de recibo, guardado como hash y usado también para reintentar sin duplicar solicitudes.
 - Listado privado de hasta 500 solicitudes; revisión atómica al abrir detalle, sin retroceder estados ni permitir cambios manuales.
 - PDF generado bajo demanda en Edge con PDFKit y fuentes Carlito incluidas (OFL). Descarga privada por sesión o token de recibo. No se almacena en Storage todavía porque la aplicación anterior también lo generaba bajo demanda.
+- La implementación local de cotizaciones incluye configuración base, tipo de cambio, cálculo del Excel y excepciones guardadas por solicitud. La migración `20261016000100_quotations.sql` y las acciones Edge de cotización todavía requieren desplegarse para que el módulo funcione contra el proyecto remoto.
+- El catálogo de vehículos usa `20261023000100_vehicle_catalog.sql`: importa las 318 variantes únicas con precio de la columna `FOB (USD)` del Excel de proveedora. El extractor de Hilux Perú guarda por separado precios y etiquetas tal como aparecen en su web; inicialmente quedan sin publicar para revisión. La migración y la función Edge actualizada aún deben desplegarse al proyecto remoto.
+- La extracción web corre en lotes pequeños y conserva el último catálogo válido ante errores o cambios del HTML. Para completar una extracción extensa, configurar el Cron descrito en `scripts/schedule-vehicle-catalog.sql` y guardar el mismo secreto aleatorio en Edge Secrets y Vault; revisar el catálogo desde el panel antes de publicar registros web.
+- Tras desplegar, establece `VEHICLE_CATALOG_SYNC_SECRET` en Supabase con `pnpm dlx supabase@2.120.0 secrets set VEHICLE_CATALOG_SYNC_SECRET="<token-aleatorio-largo>"`; coloca ese mismo token, la URL del proyecto y la clave publishable/anon en los tres placeholders del script Vault/Cron. Habilita `pg_cron` y `pg_net` en Database → Extensions antes de ejecutar el SQL una sola vez.
 - Correos, WhatsApp y recordatorios no se activan: se implementarán al configurar proveedores y definir condiciones de seguimiento.
 
 ## Estructura
@@ -49,6 +53,7 @@ Después, establecer `NEXT_PUBLIC_BACKEND_PROVIDER=supabase` en `frontend/.env.l
 ```bash
 pnpm dlx deno check supabase/functions/fri-api/index.ts
 pnpm dlx deno test --allow-env supabase/tests/validation.test.ts
+pnpm dlx deno test --allow-env supabase/tests/vehicle-catalog.test.ts
 pnpm dlx supabase@2.120.0 db query --linked --file supabase/tests/invariants.sql
 pnpm dlx supabase@2.120.0 db query --linked --file supabase/tests/authorization.sql
 pnpm --dir frontend typecheck

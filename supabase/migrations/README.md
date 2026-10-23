@@ -9,3 +9,7 @@ Separar acceso de vendedores activos del envío anónimo. Proteger todas las tab
 Abrir un detalle cambia únicamente `Pendiente a revisar` a `En revisión`, de manera atómica. No permitir editar estados desde el navegador ni retroceder solicitudes cotizadas/confirmadas. Los demás disparadores siguen pendientes de definición.
 
 Probar anónimo, vendedor activo, usuario autenticado sin rol y vendedor desactivado; además de concurrencia, rollback y consultas a PDFs/recibos ajenos. No activar políticas permisivas para resolver un error de integración.
+
+`20261016000100_quotations.sql` añade parámetros base y una cotización por solicitud FRI. Todas las operaciones de cotización pasan por `fri-api`, que valida vendedor activo; no concede lectura o escritura directa a `anon` ni `authenticated`. La migración está preparada en el repositorio y requiere aplicarse al proyecto antes de usar el módulo.
+
+`20261023000100_vehicle_catalog.sql` crea el catálogo con control de acceso solo de servidor e importa las 318 variantes únicas del Excel de proveedora utilizando únicamente `FOB (USD)` como precio. El scraper web almacena precios con la etiqueta textual de la fuente, desactiva registros ausentes solo después de una extracción completa y deja nuevos registros web en borrador hasta la revisión de la vendedora. La configuración del Cron está en `../scripts/schedule-vehicle-catalog.sql`; ejecutarla después de desplegar la migración y la función Edge actualizada.
