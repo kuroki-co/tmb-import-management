@@ -62,6 +62,45 @@ Deno.test("parses vehicle identity, referential price label and source URL", () 
   }
 });
 
+Deno.test("parses the current Hilux page markup without legacy product comments", () => {
+  const html = `
+    <div class="dev-h-stocklist-row">
+      <div class="dev-h-stocklist-col-m-1">
+        <div class="dev-h-wrapper-img">
+          <a href="https://hiluxperu.com/detail/TOYOTA/SUV-4WD-AT-2024-K-0609">
+            <img src="https://hiluxperu.com/assets/product_photos/K-0609/car.jpg" />
+          </a>
+          <a class="dev-h-ref-no" href="https://hiluxperu.com/detail/TOYOTA/SUV-4WD-AT-2024-K-0609">Ref No. K-0609</a>
+        </div>
+      </div>
+      <div class="dev-h-stocklist-col-m-2">
+        <div class="dev-h-model-title"><a href="https://hiluxperu.com/detail/TOYOTA/SUV-4WD-AT-2024-K-0609">
+          <h3>2024 TOYOTA LAND CRUISER SUV 4.5 4WD AT White</h3>
+        </a></div>
+        <p class="dev-h-price-title">Ex Showroom Price</p>
+        <p class="dev-h-price-value">$134900</p>
+        <div class="dev-h-mob-location">Trans: <span>Automatic</span></div>
+        <div class="dev-h-mob-location">Fuel: <span>Diesel</span></div>
+      </div>
+    </div>
+    <nav class="pagination"></nav>`;
+
+  const [vehicle] = parseInventoryPage(
+    html,
+    "https://hiluxperu.com/stocklist/1/maker/toyota",
+  );
+  if (!vehicle) throw new Error("Expected a vehicle from the current page layout");
+  if (vehicle.brand !== "TOYOTA" || vehicle.model !== "LAND CRUISER SUV 4.5 4WD AT White") {
+    throw new Error(`Unexpected scraped vehicle: ${JSON.stringify(vehicle)}`);
+  }
+  if (vehicle.price !== 134900 || vehicle.fuel !== "Diesel" || vehicle.transmission !== "Automatic") {
+    throw new Error(`Unexpected scraped attributes: ${JSON.stringify(vehicle)}`);
+  }
+  if (vehicle.source_reference !== "K-0609") {
+    throw new Error(`Unexpected source reference: ${vehicle.source_reference}`);
+  }
+});
+
 Deno.test("accepts only same-site inventory pagination links", () => {
   const next = parseNextPage('<a href="/stocklist/1/maker/toyota?page=2" rel="next">Next</a>');
   if (next !== "https://hiluxperu.com/stocklist/1/maker/toyota?page=2") {

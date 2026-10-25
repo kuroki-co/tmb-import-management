@@ -150,7 +150,7 @@ Deno.test("sin proveedor acepta presupuesto y descarta los campos comerciales oc
     valid;
   const result = inputSchema.parse({ ...base, hasSupplier: false });
   assert(
-    result.hasSupplier === false && !("payment" in result),
+    result.hasSupplier === false && result.payment === "Contado",
     "minimal submission",
   );
   const stale = inputSchema.parse({ ...valid, hasSupplier: false });

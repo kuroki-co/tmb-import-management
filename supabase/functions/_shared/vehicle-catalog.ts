@@ -82,6 +82,20 @@ function classAttributeValue(html: string, className: string, attribute: string)
 }
 
 function cardBlocks(html: string): string[] {
+  // The supplier replaced the `<!-- single product -->` markers with one
+  // `.dev-h-stocklist-row` element per vehicle. Prefer the structural marker
+  // and keep the comment-based split as a fallback for older page versions.
+  const rowStarts = [...html.matchAll(
+    /<div\b(?=[^>]*\bclass=["'][^"']*\bdev-h-stocklist-row\b[^"']*["'])[^>]*>/gi,
+  )];
+  if (rowStarts.length > 0) {
+    return rowStarts.map((match, index) => {
+      const start = match.index ?? 0;
+      const end = rowStarts[index + 1]?.index ?? html.length;
+      return html.slice(start, end);
+    });
+  }
+
   const chunks = html.split(/<!--\s*single product\s*-->/i).slice(1);
   return chunks.map((chunk) => {
     const stop = chunk.search(/<!--\s*single product\s*-->|<nav\b[^>]*class=["'][^"']*pagination/i);
@@ -151,8 +165,7 @@ export function parseInventoryPage(html: string, pageUrl: string): ScrapedVehicl
 
     const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
     const year = yearMatch ? Number(yearMatch[1]) : null;
-    const model = title
-      .replace(yearMatch?.[0] || "", " ")
+    const model = titleWithoutYear
       .replace(new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"), " ")
       .replace(/\s+/g, " ")
       .trim();
