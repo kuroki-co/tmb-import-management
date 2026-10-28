@@ -149,6 +149,18 @@ export function parseNextPage(html: string): string | undefined {
   return url.toString();
 }
 
+function stripBrandPrefix(model: string, brand: string) {
+  let result = model.trim();
+  while (
+    brand &&
+    result.slice(0, brand.length).toLocaleLowerCase("es") === brand.toLocaleLowerCase("es") &&
+    /^[\s\-–—:]/u.test(result.slice(brand.length))
+  ) {
+    result = result.slice(brand.length).replace(/^[\s\-–—:]+/u, "").trim();
+  }
+  return result;
+}
+
 export function parseInventoryPage(html: string, pageUrl: string): ScrapedVehicle[] {
   const rows: ScrapedVehicle[] = [];
   for (const block of cardBlocks(html)) {
@@ -161,14 +173,13 @@ export function parseInventoryPage(html: string, pageUrl: string): ScrapedVehicl
     const brand = titleWithoutYear.toLowerCase().startsWith(brandSlug.toLowerCase())
       ? titleWithoutYear.slice(0, brandSlug.length).trim()
       : brandSlug.replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
-    if (!detail || !brand || !title) continue;
+    if (!detail || !brand || !title) {
+      throw new Error(`No se pudo interpretar el vehículo ${rows.length + 1} de ${pageUrl}: faltan su marca, modelo o enlace de detalle.`);
+    }
 
     const yearMatch = title.match(/\b(19\d{2}|20\d{2})\b/);
     const year = yearMatch ? Number(yearMatch[1]) : null;
-    const model = titleWithoutYear
-      .replace(new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"), " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const model = stripBrandPrefix(titleWithoutYear.replace(/\s+/g, " "), brand);
     const priceLabel = classContent(block, "dev-h-price-title");
     const priceValue = classContent(block, "dev-h-price-value");
     const specs = specValues(block);
@@ -315,13 +326,17 @@ export async function runCatalogSyncBatch(
 
     const currentBatch = queue.slice(0, pageBatchSize);
     const outcomes = await Promise.all(currentBatch.map(async (url) => {
-      const html = await fetchHtml(url);
-      const vehicles = parseInventoryPage(html, url);
-      const nextUrl = parseNextPage(html);
-      if (vehicles.length === 0) {
-        throw new Error("La página del catálogo no contiene vehículos legibles; se conserva el catálogo anterior.");
+      try {
+        const html = await fetchHtml(url);
+        const vehicles = parseInventoryPage(html, url);
+        const nextUrl = parseNextPage(html);
+        if (vehicles.length === 0) {
+          throw new Error("La página no contiene vehículos legibles.");
+        }
+        return { url, vehicles, nextUrl };
+      } catch (error) {
+        throw new Error(`No se pudo extraer ${url}: ${extractionErrorMessage(error)}`);
       }
-      return { url, vehicles, nextUrl };
     }));
     const runIdValue = String(runId);
     const rows = dedupeVehiclesBySourceKey(outcomes.flatMap(({ vehicles }) => vehicles.map((vehicle) => ({

@@ -164,14 +164,17 @@ export class PdfService {
     y += 6;
     section("2. VEHÍCULO SOLICITADO", width * 0.25, 254);
     row([
+      ["Tipo de vehículo", d.vehicleType],
+      ["Cantidad", d.quantity],
       ["Marca", d.brand],
+    ]);
+    row([
       ["Modelo", d.model],
       ["Versión", d.version],
       ["Año", d.year],
       ["Color", d.color],
     ]);
     row([
-      ["Cantidad", d.quantity],
       ["Combustible", d.fuelGroup && d.fuelType
         ? `${d.fuelGroup} · ${d.fuelType}`
         : d.fuel],

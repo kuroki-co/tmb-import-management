@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { StatusBadge } from "./status-badge";
-const PAGE_SIZE = 10;
 export function RequestsList() {
   const [rows, setRows] = useState<Fri[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +24,7 @@ export function RequestsList() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [sort, setSort] = useState("recent");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
   const normalize = (value: string) =>
     value
       .normalize("NFD")
@@ -66,11 +66,11 @@ export function RequestsList() {
           ? Date.parse(a.createdAt) - Date.parse(b.createdAt)
           : Date.parse(b.createdAt) - Date.parse(a.createdAt),
     );
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageRows = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   return (
     <>
@@ -387,18 +387,22 @@ export function RequestsList() {
             </div>
           </>
         )}
-        {!loading && filtered.length > PAGE_SIZE && (
+        {!loading && filtered.length > 0 && (
           <TablePagination
             label="solicitudes FRI"
             page={currentPage}
-            pageSize={PAGE_SIZE}
+            pageSize={pageSize}
             totalItems={filtered.length}
             onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPage(1);
+              setPageSize(nextPageSize);
+            }}
           />
         )}
         <div
           aria-live="polite"
-          className={`flex flex-wrap justify-between gap-x-2 gap-y-1 px-4 py-2 text-[11px] text-muted ${!loading && filtered.length > PAGE_SIZE ? "" : "border-t border-border"}`}
+          className={`flex flex-wrap justify-between gap-x-2 gap-y-1 px-4 py-2 text-[11px] text-muted ${!loading && filtered.length > 0 ? "" : "border-t border-border"}`}
         >
           <span>
             {updatedAt

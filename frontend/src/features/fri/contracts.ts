@@ -3,6 +3,8 @@ import { friSchema } from "./schema";
 const fields = friSchema.shape;
 export const friDataSchema = z.object({
   ...fields,
+  // Requests created before this field was added remain readable.
+  vehicleType: fields.vehicleType.optional(),
   // Older records stored only `fuel`; new records retain group and subtype too.
   fuelGroup: fields.fuelGroup.optional(),
   fuelType: fields.fuelType.optional(),

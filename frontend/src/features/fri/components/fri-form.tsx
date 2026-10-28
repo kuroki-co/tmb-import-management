@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import { declarationText, departments } from "../options";
-import { defaults, type FriFormValues, friSchema, stepFields, transmissions, fuelGroups, fuelTypesByGroup } from "../schema";
+import { defaults, type FriFormValues, friSchema, stepFields, transmissions, fuelGroups, fuelTypesByGroup, vehicleTypes } from "../schema";
 import { submitFri } from "../api";
 import { documentRules } from "../document-rules";
 import { useFriDraft } from "../use-fri-draft";
@@ -81,6 +81,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   const [registered, setRegistered] = useState(false);
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
   const [selectedCatalog, setSelectedCatalog] = useState<CatalogVehicle | null>(null);
+  const [manualVehicleEntry, setManualVehicleEntry] = useState(false);
   const checkingRef = useRef(false);
   const sendingRef = useRef(false);
   const resetDialog = useRef<HTMLDialogElement>(null);
@@ -134,8 +135,15 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   const number = useWatch({ control, name: "documentNumber" }) || "";
   const hasSupplier = useWatch({ control, name: "hasSupplier" });
   const catalogVehicleId = useWatch({ control, name: "catalogVehicleId" });
+  const vehicleDraftValues = useWatch({
+    control,
+    name: ["vehicleType", "brand", "model", "version", "year", "color"],
+  });
   const fuelGroup = useWatch({ control, name: "fuelGroup" });
   const corporate = documentType === "RUC" && number.startsWith("20");
+  const showVehicleDetails = Boolean(
+    selectedCatalog || catalogVehicleId || manualVehicleEntry || vehicleDraftValues.some(Boolean),
+  );
   const documentRule = documentRules[documentType] ?? documentRules.DNI;
   const documentRegistration = register("documentNumber");
   useEffect(() => {
@@ -536,13 +544,18 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               value={catalogVehicleId}
               disabled={isSubmitting || registered}
               onSelect={selectCatalogVehicle}
+              onManualEntry={() => {
+                for (const name of stepFields[1]) resetField(name);
+                setSelectedCatalog(null);
+                setManualVehicleEntry(true);
+              }}
               onClear={() => {
                 setSelectedCatalog(null);
                 setValue("catalogVehicleId", "", { shouldDirty: true });
               }}
             />
           )}
-          {step === 1 && selectedCatalog && (
+          {step === 1 && showVehicleDetails && selectedCatalog && (
             <div className="md:col-span-2 rounded-xl border border-accent-border bg-accent-soft p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                 Precio referencial en China (FOB)
@@ -628,9 +641,10 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
               </section>
             </>
           )}
-          {step === 1 && (
+          {step === 1 && showVehicleDetails && (
             <section className="grid gap-x-6 gap-y-5 border-b border-border pb-5 md:col-span-2 md:grid-cols-2">
               <FormSectionHeading icon={CarFront}>Datos del vehículo</FormSectionHeading>
+              {select("vehicleType", "Tipo de vehículo", vehicleTypes)}
               {field("brand", "Marca", true)}
               {field("model", "Modelo", true)}
               {field("version", "Versión")}

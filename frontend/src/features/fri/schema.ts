@@ -11,6 +11,7 @@ export const transmissions = [
   "Transmisión híbrida (e-CVT / DHT)",
 ] as const;
 export const fuelGroups = ["EV", "Gas", "Gasolina"] as const;
+export const vehicleTypes = ["Automóvil", "Camión"] as const;
 export const fuelTypes = [
   "Híbrido enchufable",
   "Híbrido autorregenerativo",
@@ -49,6 +50,7 @@ export const friSchema = z
     mobile: z
       .string()
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
+    vehicleType: z.enum(["", ...vehicleTypes]),
     brand: requiredText(100),
     model: requiredText(100),
     version: optionalText(300),
@@ -96,6 +98,9 @@ export const friSchema = z
     const allowedFuelTypes = data.fuelGroup
       ? fuelTypesByGroup[data.fuelGroup as keyof typeof fuelTypesByGroup]
       : [];
+    if (!data.vehicleType) {
+      ctx.addIssue({ code: "custom", path: ["vehicleType"], message: "Selecciona un tipo de vehículo" });
+    }
     if (!data.fuelGroup) {
       ctx.addIssue({ code: "custom", path: ["fuelGroup"], message: "Selecciona un grupo" });
     }
@@ -147,6 +152,7 @@ export const defaults: Partial<FriFormValues> = {
   company: "",
   position: "",
   mobile: "",
+  vehicleType: "",
   brand: "",
   model: "",
   catalogVehicleId: "",
@@ -176,6 +182,7 @@ export const stepFields: (keyof FriFormValues)[][] = [
     "mobile",
   ],
   [
+    "vehicleType",
     "brand",
     "model",
     "version",

@@ -101,6 +101,35 @@ Deno.test("parses the current Hilux page markup without legacy product comments"
   }
 });
 
+Deno.test("removes a repeated make from the scraped model name", () => {
+  const html = `
+    <div class="dev-h-stocklist-row">
+      <a href="https://hiluxperu.com/detail/TOYOTA/AVANZA-2026">
+        <div class="dev-h-model-title"><h3>2026 TOYOTA TOYOTA AVANZA</h3></div>
+      </a>
+    </div>`;
+  const [vehicle] = parseInventoryPage(html, "https://hiluxperu.com/stocklist/1/maker/toyota");
+  if (vehicle?.brand !== "TOYOTA" || vehicle.model !== "AVANZA") {
+    throw new Error(`Expected the make to appear once: ${JSON.stringify(vehicle)}`);
+  }
+});
+
+Deno.test("fails the page extraction when a product card cannot be identified", () => {
+  const html = `
+    <div class="dev-h-stocklist-row">
+      <div class="dev-h-model-title"><h3>2026 Toyota Corolla</h3></div>
+    </div>`;
+  let message = "";
+  try {
+    parseInventoryPage(html, "https://hiluxperu.com/stocklist/1/maker/toyota");
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  if (!message.includes("No se pudo interpretar el vehículo")) {
+    throw new Error(`Expected an explicit extraction error, received: ${message || "no error"}`);
+  }
+});
+
 Deno.test("accepts only same-site inventory pagination links", () => {
   const next = parseNextPage('<a href="/stocklist/1/maker/toyota?page=2" rel="next">Next</a>');
   if (next !== "https://hiluxperu.com/stocklist/1/maker/toyota?page=2") {

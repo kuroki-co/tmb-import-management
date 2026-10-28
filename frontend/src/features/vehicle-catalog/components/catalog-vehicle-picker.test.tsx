@@ -10,7 +10,12 @@ const { searchCatalog, getCatalogVehicle, getPublicCatalogIndex } = vi.hoisted((
   getPublicCatalogIndex: vi.fn(),
 }));
 
-vi.mock("../api", () => ({ searchCatalog, getCatalogVehicle, getPublicCatalogIndex }));
+vi.mock("../api", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../api")>(),
+  searchCatalog,
+  getCatalogVehicle,
+  getPublicCatalogIndex,
+}));
 
 const vehicle: CatalogVehicle = {
   id: "7bcaf98d-7e73-48e6-9b7b-cc25ef0fd23b",
@@ -49,9 +54,10 @@ describe("selector de vehículos con búsqueda", () => {
   it("filtra por marca o modelo y completa al elegir un resultado con teclado", async () => {
     const onSelect = vi.fn();
     const onClear = vi.fn();
+    const onManualEntry = vi.fn();
     const user = userEvent.setup();
     const view = render(
-      <CatalogVehiclePicker onSelect={onSelect} onClear={onClear} />,
+      <CatalogVehiclePicker onSelect={onSelect} onClear={onClear} onManualEntry={onManualEntry} />,
     );
 
     const input = screen.getByRole("combobox", { name: /Marca o modelo/ });
@@ -67,6 +73,7 @@ describe("selector de vehículos con búsqueda", () => {
         value={vehicle.id}
         onSelect={onSelect}
         onClear={onClear}
+        onManualEntry={onManualEntry}
       />,
     );
     expect((input as HTMLInputElement).value).toBe("Toyota Corolla Cross · 2026");
@@ -77,10 +84,40 @@ describe("selector de vehículos con búsqueda", () => {
   it("usa la búsqueda remota como respaldo si no se puede precargar el catálogo", async () => {
     getPublicCatalogIndex.mockRejectedValue(new Error("offline"));
     const user = userEvent.setup();
-    render(<CatalogVehiclePicker onSelect={vi.fn()} onClear={vi.fn()} />);
+    render(<CatalogVehiclePicker onSelect={vi.fn()} onClear={vi.fn()} onManualEntry={vi.fn()} />);
 
     await user.type(screen.getByRole("combobox", { name: /Marca o modelo/ }), "toyota");
     await screen.findByRole("option");
     expect(searchCatalog).toHaveBeenCalledWith("toyota");
+  });
+
+  it("muestra la marca una sola vez aunque venga repetida en el modelo", async () => {
+    getPublicCatalogIndex.mockResolvedValue([{ ...vehicle, model: "Toyota Corolla Cross" }]);
+    const user = userEvent.setup();
+    render(<CatalogVehiclePicker onSelect={vi.fn()} onClear={vi.fn()} onManualEntry={vi.fn()} />);
+
+    await user.type(screen.getByRole("combobox", { name: /Marca o modelo/ }), "toyota");
+    const option = await screen.findByRole("option");
+
+    expect(option.textContent).toContain("Toyota Corolla Cross");
+    expect(option.textContent).not.toContain("Toyota Toyota");
+  });
+
+  it("permite continuar manualmente cuando el vehículo no está en el catálogo", async () => {
+    getPublicCatalogIndex.mockResolvedValue([]);
+    const onManualEntry = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CatalogVehiclePicker
+        onSelect={vi.fn()}
+        onClear={vi.fn()}
+        onManualEntry={onManualEntry}
+      />,
+    );
+
+    await user.type(screen.getByRole("combobox", { name: /Marca o modelo/ }), "vehículo especial");
+    await user.click(await screen.findByRole("button", { name: "No encuentro mi vehículo" }));
+
+    expect(onManualEntry).toHaveBeenCalledOnce();
   });
 });

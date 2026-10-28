@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react
 import { Check, ChevronDown, Search } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/field";
 import {
+  catalogVehicleName,
   getCatalogVehicle,
   getPublicCatalogIndex,
   searchCatalog,
@@ -15,7 +16,7 @@ function normalize(value: string) {
 }
 
 function optionLabel(vehicle: CatalogVehicle) {
-  return `${vehicle.brand} ${vehicle.model}${vehicle.year ? ` · ${vehicle.year}` : ""}`;
+  return `${catalogVehicleName(vehicle.brand, vehicle.model)}${vehicle.year ? ` · ${vehicle.year}` : ""}`;
 }
 
 function priceLabel(vehicle: CatalogVehicle) {
@@ -31,11 +32,13 @@ export function CatalogVehiclePicker({
   disabled = false,
   onSelect,
   onClear,
+  onManualEntry,
 }: {
   value?: string;
   disabled?: boolean;
   onSelect: (vehicle: CatalogVehicle) => void;
   onClear: () => void;
+  onManualEntry: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<CatalogVehicle[]>([]);
@@ -146,6 +149,14 @@ export function CatalogVehiclePicker({
     onSelect(vehicle);
   }
 
+  function enterManually() {
+    setQuery("");
+    setItems([]);
+    setError("");
+    setOpen(false);
+    onManualEntry();
+  }
+
   function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown" && visibleItems.length) {
       event.preventDefault();
@@ -199,14 +210,30 @@ export function CatalogVehiclePicker({
         </p>
       ) : (
         <p className="mt-1.5 text-xs text-muted">
-          Busca por marca o modelo. Al elegir un resultado completaremos los datos disponibles y mostraremos su precio referencial; también puedes llenar los campos manualmente.
+          Busca por marca o modelo. Al elegir un resultado completaremos los datos disponibles y mostraremos su precio referencial.
         </p>
       )}
 
       {(preparingIndex || loading) && <p role="status" className="mt-2 text-xs text-muted">{preparingIndex ? "Preparando catálogo…" : "Buscando…"}</p>}
       {error && <p role="alert" className="mt-2 text-xs text-danger">{error}</p>}
-      {open && !preparingIndex && !loading && term.length >= 2 && !error && visibleItems.length === 0 && !isSelected && (
-        <p className="mt-2 text-xs text-muted">No encontramos coincidencias. Puedes completar los campos manualmente.</p>
+      {open && !preparingIndex && !loading && term.length >= 2 && visibleItems.length === 0 && !isSelected && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-border bg-white p-4 shadow-lg">
+          <p className="text-sm font-medium text-navy">
+            {error ? "No pudimos consultar el catálogo." : "No encontramos ese vehículo."}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Puedes continuar ingresando sus datos manualmente.
+          </p>
+          <button
+            type="button"
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={enterManually}
+            className="mt-3 min-h-10 rounded-lg border border-border px-3 text-sm font-semibold text-primary transition-colors hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            No encuentro mi vehículo
+          </button>
+        </div>
       )}
       {open && visibleItems.length > 0 && (
         <ul
@@ -232,7 +259,7 @@ export function CatalogVehiclePicker({
                 className={`flex min-h-14 w-full items-start justify-between gap-3 px-3 py-3 text-left ${index === activeIndex ? "bg-accent-soft/60" : "hover:bg-background"}`}
               >
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{vehicle.brand} {vehicle.model}</span>
+                  <span className="block text-sm font-semibold">{catalogVehicleName(vehicle.brand, vehicle.model)}</span>
                   {(vehicle.year || vehicle.variant) && (
                     <span className="mt-1 block text-xs text-muted">
                       {[vehicle.year, vehicle.variant].filter(Boolean).join(" · ")}

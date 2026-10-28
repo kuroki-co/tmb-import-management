@@ -15,6 +15,7 @@ import {
 import { FriSummary } from "./fri-summary";
 import { StatusBadge } from "./status-badge";
 import { getReceiptToken } from "../receipt-storage";
+import { AppointmentBooker } from "@/features/calendar/appointment-booker";
 export function FriDetails({
   id,
   receipt = false,
@@ -280,15 +281,18 @@ export function FriDetails({
             <FriSummary data={fri.data} compact={receipt} />
           </div>
           {receipt && (
-            <p className="mt-6 text-sm text-muted">
-              ¿Necesitas registrar otro requerimiento?{" "}
-              <Link
-                href="/fri"
-                className="font-semibold text-primary underline underline-offset-2"
-              >
-                Crear una nueva solicitud
-              </Link>
-            </p>
+            <>
+              <AppointmentBooker requestId={id} />
+              <p className="mt-6 text-sm text-muted">
+                ¿Necesitas registrar otro requerimiento?{" "}
+                <Link
+                  href="/fri"
+                  className="font-semibold text-primary underline underline-offset-2"
+                >
+                  Crear una nueva solicitud
+                </Link>
+              </p>
+            </>
           )}
         </>
       )}

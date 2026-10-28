@@ -78,6 +78,7 @@ export function FriSummary({
     {
       title: "Vehículo solicitado",
       rows: [
+        ["Tipo de vehículo", d.vehicleType],
         ["Marca y modelo", `${d.brand || ""} ${d.model || ""}`.trim()],
         ["Año", d.year],
         ["Cantidad", d.quantity],

@@ -418,3 +418,8 @@ enabled = true
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/fri-api/index.ts"
+
+[functions.calendar-oauth-callback]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/calendar-oauth-callback/index.ts"

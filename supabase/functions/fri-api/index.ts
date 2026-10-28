@@ -15,6 +15,12 @@ import {
   getCatalogSyncStatus,
   runCatalogSyncBatch,
 } from "../_shared/vehicle-catalog.ts";
+import {
+  calendarAccessToken,
+  calendarConnected,
+  encryptRefreshToken,
+  googleRequest,
+} from "../_shared/google-calendar.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({
@@ -37,6 +43,8 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("catalog-admin-list"),
     query: z.string().max(60).optional(),
     source: z.enum(["all", "supplier_excel", "tmb_web"]).optional(),
+    page: z.number().int().min(1).max(100_000).optional(),
+    pageSize: z.union([z.literal(6), z.literal(10), z.literal(15), z.literal(20)]).optional(),
   }).strict(),
   z.object({
     action: z.literal("catalog-publish"),
@@ -46,6 +54,19 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("catalog-sync-status") }).strict(),
   z.object({ action: z.literal("catalog-sync") }).strict(),
   z.object({ action: z.literal("quotation-settings-get") }).strict(),
+  z.object({ action: z.literal("calendar-status") }).strict(),
+  z.object({ action: z.literal("calendar-connect") }).strict(),
+  z.object({ action: z.literal("calendar-agenda") }).strict(),
+  z.object({
+    action: z.literal("calendar-slots"),
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }).strict(),
+  z.object({
+    action: z.literal("calendar-book"),
+    id: z.uuid(),
+    token: z.string().regex(/^[a-f0-9]{64}$/),
+    startsAt: z.string().datetime({ offset: true }),
+  }).strict(),
   z.object({
     action: z.literal("quotation-settings-update"),
     values: z.unknown(),
@@ -302,6 +323,115 @@ export async function handler(req: Request): Promise<Response> {
       if (error) throw error;
       return json({ id: data, receiptToken: body.receiptToken }, 201);
     }
+    if (body.action === "calendar-slots") {
+      await limit(`calendar:slots:${ip}`, 60, 60);
+      const dayStart = new Date(`${body.day}T00:00:00-05:00`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Lima" }));
+      const targetDay = new Date(`${body.day}T12:00:00-05:00`);
+      const daysAhead = Math.floor((targetDay.getTime() - new Date(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}T12:00:00-05:00`).getTime()) / 86400000);
+      if (daysAhead < 0 || daysAhead > 60 || targetDay.getDay() === 0 || targetDay.getDay() === 6) {
+        throw new HttpError(400, "Elige un día hábil dentro de los próximos 60 días");
+      }
+      const connection = await calendarConnected(admin);
+      if (!connection) return json({ connected: false, slots: [] });
+      const accessToken = await calendarAccessToken(admin);
+      const busy = await googleRequest<{ calendars?: { primary?: { busy?: { start: string; end: string }[] } } }>(
+        accessToken,
+        "/freeBusy",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            timeMin: dayStart.toISOString(),
+            timeMax: dayEnd.toISOString(),
+            timeZone: "America/Lima",
+            items: [{ id: "primary" }],
+          }),
+        },
+      );
+      const busyPeriods = busy.calendars?.primary?.busy || [];
+      const { data: localBookings, error: bookingError } = await admin.from("tmb_appointments")
+        .select("starts_at,ends_at").gte("starts_at", dayStart.toISOString()).lt("starts_at", dayEnd.toISOString());
+      if (bookingError) throw bookingError;
+      const intervals = [...busyPeriods, ...(localBookings || []).map((booking) => ({ start: booking.starts_at, end: booking.ends_at }))];
+      const now = Date.now();
+      const slots: string[] = [];
+      for (let minute = 9 * 60; minute < 17 * 60; minute += 30) {
+        const hour = Math.floor(minute / 60);
+        const min = minute % 60;
+        const start = new Date(`${body.day}T${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}:00-05:00`);
+        const end = new Date(start.getTime() + 30 * 60 * 1000);
+        if (start.getTime() <= now + 60 * 60 * 1000) continue;
+        const overlaps = intervals.some((period) => new Date(period.start).getTime() < end.getTime() && new Date(period.end).getTime() > start.getTime());
+        if (!overlaps) slots.push(start.toISOString());
+      }
+      return json({ connected: true, slots, timeZone: "America/Lima" });
+    }
+    if (body.action === "calendar-book") {
+      await limit(`calendar:book:${ip}`, 10, 3600);
+      const startsAt = new Date(body.startsAt);
+      const now = Date.now();
+      if (startsAt.getTime() < now + 60 * 60 * 1000 || startsAt.getTime() > now + 61 * 86400000) {
+        throw new HttpError(400, "El horario seleccionado ya no está disponible");
+      }
+      const lima = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Lima", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+      }).formatToParts(startsAt).reduce<Record<string, string>>((parts, part) => { parts[part.type] = part.value; return parts; }, {});
+      const minute = Number(lima.minute);
+      const hour = Number(lima.hour);
+      if (["Sat", "Sun"].includes(lima.weekday) || hour < 9 || hour >= 17 || (minute !== 0 && minute !== 30)) {
+        throw new HttpError(400, "El horario seleccionado no corresponde a un espacio válido");
+      }
+      const { data: rows, error: receiptError } = await admin.rpc("tmb_read_receipt", { p_id: body.id, p_token: body.token });
+      if (receiptError) throw receiptError;
+      const fri = rows?.[0];
+      if (!fri) throw new HttpError(404, "No encontramos la solicitud FRI");
+      const connection = await calendarConnected(admin);
+      if (!connection) throw new HttpError(503, "Agenda todavía no está conectada. Inténtalo más tarde.");
+      const starts = startsAt.toISOString();
+      const ends = new Date(startsAt.getTime() + 30 * 60 * 1000).toISOString();
+      const accessToken = await calendarAccessToken(admin);
+      const availability = await googleRequest<{ calendars?: { primary?: { busy?: { start: string; end: string }[] } } }>(
+        accessToken,
+        "/freeBusy",
+        { method: "POST", body: JSON.stringify({ timeMin: starts, timeMax: ends, timeZone: "America/Lima", items: [{ id: "primary" }] }) },
+      );
+      if (availability.calendars?.primary?.busy?.length) {
+        throw new HttpError(409, "Ese horario acaba de ocuparse. Actualiza la disponibilidad y elige otro.");
+      }
+      const data = recordDataSchema.parse(fri.data);
+      const { data: appointment, error: insertError } = await admin.from("tmb_appointments").insert({
+        request_id: fri.id,
+        request_code: fri.code,
+        starts_at: starts,
+        ends_at: ends,
+        client_name: data.name,
+        vehicle: `${data.brand} ${data.model}`,
+        status: "pending",
+      }).select("id").single();
+      if (insertError) {
+        if (insertError.code === "23505") throw new HttpError(409, "Este horario o solicitud ya tiene una cita. Actualiza la agenda y elige otro espacio.");
+        throw insertError;
+      }
+      try {
+        const event = await googleRequest<{ id: string }>(accessToken, "/calendars/primary/events", {
+          method: "POST",
+          body: JSON.stringify({
+            summary: `Reunión TMB · ${fri.code} · ${data.name}`,
+            description: `Solicitud: ${fri.code}\nCliente: ${data.name}\nVehículo: ${data.brand} ${data.model}`,
+            start: { dateTime: starts, timeZone: "America/Lima" },
+            end: { dateTime: ends, timeZone: "America/Lima" },
+          }),
+        });
+        const { error: updateError } = await admin.from("tmb_appointments")
+          .update({ status: "confirmed", google_event_id: event.id }).eq("id", appointment.id);
+        if (updateError) throw updateError;
+        return json({ success: true, startsAt: starts, endsAt: ends });
+      } catch (error) {
+        await admin.from("tmb_appointments").delete().eq("id", appointment.id);
+        throw error;
+      }
+    }
     let record: Fri | undefined;
     const token = "token" in body ? body.token : undefined;
     if (
@@ -380,11 +510,54 @@ export async function handler(req: Request): Promise<Response> {
         });
       }
       await limit(`seller:${seller.id}`, 120, 60);
+      if (body.action === "calendar-status") {
+        return json({ connection: await calendarConnected(admin) });
+      }
+      if (body.action === "calendar-connect") {
+        const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+        if (!clientId) {
+          throw new HttpError(503, "Configura Google Calendar en Supabase para conectar la agenda.");
+        }
+        const redirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") || `${url}/functions/v1/calendar-oauth-callback`;
+        const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+        const stateHash = await hash(state);
+        const { error: stateError } = await admin.from("tmb_calendar_oauth_states").insert({
+          state_hash: stateHash,
+          seller_id: seller.id,
+          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        });
+        if (stateError) throw stateError;
+        const authorize = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+        authorize.search = new URLSearchParams({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email",
+          access_type: "offline",
+          prompt: "consent",
+          state,
+        }).toString();
+        return json({ url: authorize.toString() });
+      }
+      if (body.action === "calendar-agenda") {
+        const [connection, result] = await Promise.all([
+          calendarConnected(admin),
+          admin.from("tmb_appointments").select("id,request_id,request_code,starts_at,ends_at,client_name,vehicle,status")
+            .gte("starts_at", new Date(Date.now() - 30 * 86400000).toISOString())
+            .order("starts_at", { ascending: true }).limit(300),
+        ]);
+        if (result.error) throw result.error;
+        return json({ connection, appointments: result.data || [] });
+      }
       if (body.action === "catalog-admin-list") {
         const search = (body.query || "").replace(/[^\p{L}\p{N}\s&./-]/gu, " ").trim();
+        const paginated = body.page !== undefined || body.pageSize !== undefined;
+        const page = body.page ?? 1;
+        const pageSize = body.pageSize ?? 6;
         let query = admin.from("tmb_vehicle_catalog").select(
           "id,source_type,brand,model,variant,year,vehicle_type,fuel,transmission,engine,drive_type,color,price,currency,price_label,image_url,source_url,source_reference,updated_at,last_seen_at,is_active,is_published",
-        ).order("updated_at", { ascending: false }).limit(100);
+          { count: "exact" },
+        ).order("updated_at", { ascending: false });
         if (body.source && body.source !== "all") {
           query = query.eq("source_type", body.source);
         }
@@ -392,9 +565,11 @@ export async function handler(req: Request): Promise<Response> {
           const term = `%${search.slice(0, 50)}%`;
           query = query.or(`brand.ilike.${term},model.ilike.${term},variant.ilike.${term}`);
         }
-        const { data, error } = await query;
+        const { data, count, error } = paginated
+          ? await query.range((page - 1) * pageSize, page * pageSize - 1)
+          : await query.limit(100);
         if (error) throw error;
-        return json(data || []);
+        return json(paginated ? { items: data || [], total: count ?? 0 } : data || []);
       }
       if (body.action === "catalog-publish") {
         const { data, error } = await admin.from("tmb_vehicle_catalog")

@@ -5,6 +5,7 @@ import { TablePagination } from "./table-pagination";
 describe("TablePagination", () => {
   it("shows the current range and moves forward and backward", () => {
     const onPageChange = vi.fn();
+    const onPageSizeChange = vi.fn();
     const { rerender } = render(
       <TablePagination
         label="solicitudes FRI"
@@ -12,12 +13,15 @@ describe("TablePagination", () => {
         pageSize={10}
         totalItems={23}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
       />,
     );
 
     expect(screen.getByRole("navigation").textContent).toContain(
       "Mostrando 1–10 de 23",
     );
+    fireEvent.change(screen.getByRole("combobox", { name: /Filas por página/ }), { target: { value: "15" } });
+    expect(onPageSizeChange).toHaveBeenCalledWith(15);
     fireEvent.click(screen.getByRole("button", { name: /Siguiente/ }));
     expect(onPageChange).toHaveBeenCalledWith(2);
 
@@ -28,6 +32,7 @@ describe("TablePagination", () => {
         pageSize={10}
         totalItems={23}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
       />,
     );
     expect(screen.getByRole("navigation").textContent).toContain(
@@ -41,16 +46,18 @@ describe("TablePagination", () => {
     ).toBe(true);
   });
 
-  it("hides pagination when the rows fit on one page", () => {
-    const { container } = render(
+  it("keeps the row-count selector visible when the rows fit on one page", () => {
+    render(
       <TablePagination
         label="vehículos"
         page={1}
         pageSize={20}
         totalItems={20}
         onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
       />,
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByRole("combobox", { name: /Filas por página/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Siguiente/ })).toBeNull();
   });
 });

@@ -5,12 +5,20 @@ import { FriForm } from "./fri-form";
 import { FRI_DRAFT_KEY, serializeDraft } from "../draft";
 import { defaults, type FriFormValues } from "../schema";
 import { getReceiptToken } from "../receipt-storage";
-const { push, submitFri } = vi.hoisted(() => ({
+const { push, submitFri, getPublicCatalogIndex, getCatalogVehicle, searchCatalog } = vi.hoisted(() => ({
   push: vi.fn(),
   submitFri: vi.fn(),
+  getPublicCatalogIndex: vi.fn(),
+  getCatalogVehicle: vi.fn(),
+  searchCatalog: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("../api", () => ({ submitFri }));
+vi.mock("@/features/vehicle-catalog/api", () => ({
+  getPublicCatalogIndex,
+  getCatalogVehicle,
+  searchCatalog,
+}));
 const fixture: FriFormValues = {
   ...defaults,
   documentType: "DNI",
@@ -22,6 +30,7 @@ const fixture: FriFormValues = {
   position: "",
   department: "Arequipa",
   mobile: "999123456",
+  vehicleType: "Automóvil",
   brand: "Toyota",
   model: "Corolla",
   version: "",
@@ -60,8 +69,51 @@ async function open(
 beforeEach(() => {
   push.mockReset();
   submitFri.mockReset();
+  getPublicCatalogIndex.mockReset();
+  getCatalogVehicle.mockReset();
+  searchCatalog.mockReset();
+  getPublicCatalogIndex.mockResolvedValue([]);
+  getCatalogVehicle.mockResolvedValue(null);
+  searchCatalog.mockResolvedValue([]);
 });
 describe("Flujo público FRI", () => {
+  it("muestra primero solo el buscador de marca o modelo", async () => {
+    const { user } = await open({}, 1);
+
+    expect(screen.getByRole("combobox", { name: /Marca o modelo/ })).toBeTruthy();
+    expect(screen.queryByLabelText(/Tipo de vehículo/)).toBeNull();
+    expect(screen.queryByLabelText(/^Marca\*/)).toBeNull();
+    expect(screen.queryByLabelText(/^Modelo\*/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByRole("heading", { name: "¿Qué vehículo deseas importar?" })).toBeTruthy();
+  });
+
+  it("limpia los datos del vehículo al elegir el ingreso manual", async () => {
+    const { user } = await open(fixture, 1);
+
+    await user.type(
+      screen.getByRole("combobox", { name: /Marca o modelo/ }),
+      "vehículo fuera del catálogo",
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "No encuentro mi vehículo" }),
+    );
+
+    expect((screen.getByLabelText(/Tipo de vehículo/) as HTMLSelectElement).value).toBe("");
+    expect((screen.getByLabelText(/^Marca\*/) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/^Modelo\*/) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/Cantidad/) as HTMLInputElement).value).toBe("1");
+  });
+
+  it("requiere seleccionar si el vehículo es automóvil o camión", async () => {
+    const { user } = await open({ ...fixture, vehicleType: "" }, 1);
+
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    expect(screen.getByRole("heading", { name: "¿Qué vehículo deseas importar?" })).toBeTruthy();
+    expect(screen.getByText("Selecciona una opción válida")).toBeTruthy();
+  });
+
   it("indica que primero debe elegir un grupo de combustible", async () => {
     const { user } = await open({ ...fixture, fuelGroup: "", fuelType: "" }, 1);
     const subtype = screen.getByLabelText(/^Tipo de combustible/) as HTMLSelectElement;
@@ -122,6 +174,17 @@ describe("Flujo público FRI", () => {
       await screen.findByRole("heading", {
         name: "¿Qué vehículo deseas importar?",
       });
+      await user.type(
+        screen.getByRole("combobox", { name: /Marca o modelo/ }),
+        "vehículo fuera del catálogo",
+      );
+      await user.click(
+        await screen.findByRole("button", { name: "No encuentro mi vehículo" }),
+      );
+      await user.selectOptions(
+        screen.getByLabelText(/Tipo de vehículo/),
+        "Automóvil",
+      );
       await user.type(screen.getByLabelText(/^Marca\*/), "Toyota");
       await user.type(screen.getByLabelText(/^Modelo/), "Corolla");
       await user.type(screen.getByLabelText(/^Año/), "2026");

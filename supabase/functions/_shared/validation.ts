@@ -35,6 +35,7 @@ export const formSchema = z
     mobile: z
       .string()
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
+    vehicleType: z.enum(["", "Automóvil", "Camión"]),
     brand: requiredText(100),
     model: requiredText(100),
     version: optionalText(300),
@@ -92,6 +93,9 @@ export const formSchema = z
       Gas: fuelTypes.slice(3, 5),
       Gasolina: fuelTypes.slice(5, 6),
     };
+    if (!data.vehicleType) {
+      ctx.addIssue({ code: "custom", path: ["vehicleType"], message: "Selecciona un tipo de vehículo" });
+    }
     if (!data.fuelGroup) {
       ctx.addIssue({ code: "custom", path: ["fuelGroup"], message: "Selecciona un grupo" });
     }
@@ -138,6 +142,8 @@ export const formSchema = z
 const fields = formSchema.shape;
 export const recordDataSchema = z.object({
   ...fields,
+  // Older FRI records predate the general vehicle category.
+  vehicleType: fields.vehicleType.optional(),
   // Older FRI records only stored a single fuel string.
   fuelGroup: fields.fuelGroup.optional(),
   fuelType: fields.fuelType.optional(),

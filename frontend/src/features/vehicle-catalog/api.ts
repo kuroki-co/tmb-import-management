@@ -50,6 +50,19 @@ const vehicleSchema = z.object({
 }));
 export type CatalogVehicle = z.infer<typeof vehicleSchema>;
 
+export function catalogVehicleName(brand: string, model: string) {
+  const cleanBrand = brand.trim();
+  let cleanModel = model.trim();
+  while (
+    cleanBrand &&
+    cleanModel.slice(0, cleanBrand.length).toLocaleLowerCase("es") === cleanBrand.toLocaleLowerCase("es") &&
+    /^[\s\-–—:]/u.test(cleanModel.slice(cleanBrand.length))
+  ) {
+    cleanModel = cleanModel.slice(cleanBrand.length).replace(/^[\s\-–—:]+/u, "").trim();
+  }
+  return [cleanBrand, cleanModel].filter(Boolean).join(" ");
+}
+
 const CATALOG_PAGE_SIZE = 1000;
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 let catalogCache: { expiresAt: number; vehicles: CatalogVehicle[] } | null = null;
@@ -90,7 +103,12 @@ const syncStatusSchema = z.object({
   lastSuccessAt: z.string().nullable(),
   lastError: z.string().nullable(),
 });
+const catalogAdminPageSchema = z.object({
+  items: vehicleSchema.array(),
+  total: z.number().int().nonnegative(),
+});
 export type CatalogSyncStatus = z.infer<typeof syncStatusSchema>;
+export type CatalogAdminPage = z.infer<typeof catalogAdminPageSchema>;
 
 export async function searchCatalog(query: string) {
   const result = await callFriFunction({
@@ -105,13 +123,20 @@ export async function getCatalogVehicle(id: string) {
   return result === null ? null : vehicleSchema.parse(result);
 }
 
-export async function listCatalogAdmin(query = "", source = "all") {
+export async function listCatalogAdmin(
+  query = "",
+  source = "all",
+  page = 1,
+  pageSize = 6,
+): Promise<CatalogAdminPage> {
   const result = await callFriFunction({
     action: "catalog-admin-list",
     query: query.trim().slice(0, 60),
     source,
+    page,
+    pageSize,
   }, true);
-  return vehicleSchema.array().parse(result);
+  return catalogAdminPageSchema.parse(result);
 }
 
 export async function publishCatalogVehicle(id: string, published: boolean) {
