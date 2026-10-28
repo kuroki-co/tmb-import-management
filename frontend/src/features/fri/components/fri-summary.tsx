@@ -45,6 +45,11 @@ export function FriSummary({
       sourceUrl: catalogVehicle.sourceUrl,
     }
     : undefined);
+  const fuelSummary = d.fuelGroup === "Gasolina"
+    ? "Diésel"
+    : d.fuelGroup && d.fuelType
+    ? `${d.fuelGroup === "EV" ? "Eléctrico e híbrido" : "Gas"} · ${d.fuelType}`
+    : d.fuel;
   const sections: { title: string; rows: Row[] }[] = [
     {
       title: "Datos del cliente",
@@ -76,13 +81,11 @@ export function FriSummary({
         ["Marca y modelo", `${d.brand || ""} ${d.model || ""}`.trim()],
         ["Año", d.year],
         ["Cantidad", d.quantity],
-        ["Combustible", d.fuelGroup && d.fuelType
-          ? `${d.fuelGroup} · ${d.fuelType}`
-          : d.fuel],
+        ["Combustible", fuelSummary],
         ["Transmisión", d.transmission],
         ...(catalogReference
           ? [[
-            `FOB referencial${catalogReference.currency ? ` (${catalogReference.currency})` : ""}`,
+            "Precio referencial en China (FOB)",
             catalogReference.price === null
               ? "Sin precio publicado"
               : `${catalogReference.currency} ${catalogReference.price.toLocaleString("es-PE", { minimumFractionDigits: 2 })}`,

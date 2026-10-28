@@ -28,6 +28,10 @@ const requestSchema = z.discriminatedUnion("action", [
     action: z.literal("catalog-list"),
     query: z.string().max(60).optional(),
   }).strict(),
+  z.object({
+    action: z.literal("catalog-search-index"),
+    offset: z.number().int().min(0).max(100_000),
+  }).strict(),
   z.object({ action: z.literal("catalog-get"), id: z.uuid() }).strict(),
   z.object({
     action: z.literal("catalog-admin-list"),
@@ -203,6 +207,20 @@ export async function handler(req: Request): Promise<Response> {
         query = query.or(`brand.ilike.${term},model.ilike.${term},variant.ilike.${term}`);
       }
       const { data, error } = await query;
+      if (error) throw error;
+      return json(data || []);
+    }
+    if (body.action === "catalog-search-index") {
+      await limit(`catalog:public:${ip}`, 60, 60);
+      const pageSize = 1000;
+      const { data, error } = await admin.from("tmb_vehicle_catalog").select(
+        "id,source_type,brand,model,variant,year,vehicle_type,fuel,transmission,engine,drive_type,color,price,currency,price_label,image_url,source_url,source_reference,updated_at",
+      ).eq("is_active", true).eq("is_published", true)
+        .order("brand", { ascending: true })
+        .order("model", { ascending: true })
+        .order("variant", { ascending: true })
+        .order("id", { ascending: true })
+        .range(body.offset, body.offset + pageSize - 1);
       if (error) throw error;
       return json(data || []);
     }

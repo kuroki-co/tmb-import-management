@@ -50,6 +50,37 @@ const vehicleSchema = z.object({
 }));
 export type CatalogVehicle = z.infer<typeof vehicleSchema>;
 
+const CATALOG_PAGE_SIZE = 1000;
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+let catalogCache: { expiresAt: number; vehicles: CatalogVehicle[] } | null = null;
+let catalogRequest: Promise<CatalogVehicle[]> | null = null;
+
+/** Loads the public catalog once so the FRI autocomplete can filter locally. */
+export function getPublicCatalogIndex() {
+  if (catalogCache && catalogCache.expiresAt > Date.now()) {
+    return Promise.resolve(catalogCache.vehicles);
+  }
+  if (catalogRequest) return catalogRequest;
+
+  catalogRequest = (async () => {
+    const vehicles: CatalogVehicle[] = [];
+    for (let offset = 0; ; offset += CATALOG_PAGE_SIZE) {
+      const page = vehicleSchema.array().parse(await callFriFunction({
+        action: "catalog-search-index",
+        offset,
+      }));
+      vehicles.push(...page);
+      if (page.length < CATALOG_PAGE_SIZE) break;
+    }
+    catalogCache = { vehicles, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS };
+    return vehicles;
+  })().finally(() => {
+    catalogRequest = null;
+  });
+
+  return catalogRequest;
+}
+
 const syncStatusSchema = z.object({
   status: z.string(),
   pagesProcessed: z.number(),

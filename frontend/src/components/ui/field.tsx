@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 export const inputClass =
-  "w-full rounded-lg border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted/60 transition-colors hover:border-muted/50 focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "w-full min-w-0 rounded-lg border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted/60 transition-colors hover:border-muted/50 focus:border-accent focus:ring-2 focus:ring-accent/15";
 export function Field({
   label,
   required,
@@ -19,7 +19,7 @@ export function Field({
   optional?: boolean;
 }) {
   return (
-    <div data-field-error={error ? true : undefined}>
+    <div className="min-w-0" data-field-error={error ? true : undefined}>
       <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium">
         {label}
         {required && <span className="ml-1 text-primary">*</span>}

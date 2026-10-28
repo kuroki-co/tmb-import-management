@@ -62,6 +62,17 @@ beforeEach(() => {
   submitFri.mockReset();
 });
 describe("Flujo público FRI", () => {
+  it("indica que primero debe elegir un grupo de combustible", async () => {
+    const { user } = await open({ ...fixture, fuelGroup: "", fuelType: "" }, 1);
+    const subtype = screen.getByLabelText(/^Tipo de combustible/) as HTMLSelectElement;
+
+    expect(subtype.disabled).toBe(true);
+    expect(screen.getByText("Elige primero el grupo de combustible.")).toBeTruthy();
+
+    await user.selectOptions(screen.getByLabelText(/Grupo de combustible/), "EV");
+    expect(subtype.disabled).toBe(false);
+  });
+
   it("limita los tipos disponibles al grupo de combustible seleccionado", async () => {
     const { user } = await open(fixture, 1);
     const group = screen.getByLabelText(/Grupo de combustible/) as HTMLSelectElement;
@@ -214,14 +225,14 @@ describe("Flujo público FRI", () => {
   });
   it("permite cancelar el reinicio sin borrar datos y exige confirmar para borrarlos", async () => {
     const { user } = await open(fixture);
-    await user.click(screen.getByRole("button", { name: "Empezar de nuevo" }));
+    await user.click(screen.getByRole("button", { name: "Reiniciar" }));
     await user.click(
       screen.getByRole("button", { name: "Seguir completando" }),
     );
     expect(
       (screen.getByLabelText(/Número de documento/) as HTMLInputElement).value,
     ).toBe("01234567");
-    await user.click(screen.getByRole("button", { name: "Empezar de nuevo" }));
+    await user.click(screen.getByRole("button", { name: "Reiniciar" }));
     await user.click(screen.getByRole("button", { name: "Borrar y empezar" }));
     expect(
       (screen.getByLabelText(/Número de documento/) as HTMLInputElement).value,

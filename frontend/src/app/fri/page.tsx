@@ -2,8 +2,8 @@ import { Brand } from "@/components/ui/brand";
 import { FriForm } from "@/features/fri/components/fri-form";
 export default function FriPage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 pb-6 pt-4 md:px-8 md:pb-8 md:pt-6">
-      <header className="mb-6 flex items-center justify-between gap-6 border-b border-border pb-3 md:mb-7">
+    <main className="mx-auto w-full min-w-0 max-w-6xl px-4 pb-6 pt-4 md:px-8 md:pb-8 md:pt-6">
+      <header className="mb-6 flex min-w-0 items-center justify-between gap-6 border-b border-border pb-3 md:mb-7">
         <Brand />
         <span className="hidden text-xs text-muted sm:block">
           FICHA DE REQUERIMIENTO DE IMPORTACIÓN

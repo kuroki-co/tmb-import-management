@@ -6,10 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
   ArrowRight,
+  CarFront,
   Check,
+  Contact,
   FileText,
+  IdCard,
+  SlidersHorizontal,
   ShieldCheck,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
@@ -21,7 +26,7 @@ import { useFriDraft } from "../use-fri-draft";
 import { FriSummary } from "./fri-summary";
 import { rememberReceipt } from "../receipt-storage";
 import { CatalogVehiclePicker } from "@/features/vehicle-catalog/components/catalog-vehicle-picker";
-import { getCatalogVehicle, type CatalogVehicle } from "@/features/vehicle-catalog/api";
+import { getCatalogVehicle, getPublicCatalogIndex, type CatalogVehicle } from "@/features/vehicle-catalog/api";
 const steps = [
   "Cliente",
   "Vehículo",
@@ -40,6 +45,35 @@ const descriptions = [
   "Indica tu presupuesto y si ya tienes un proveedor de preferencia.",
   "Comprueba tus datos. Puedes editar cada sección antes de enviar.",
 ];
+const fuelGroupLabels: Record<(typeof fuelGroups)[number], string> = {
+  EV: "Eléctrico e híbrido",
+  Gas: "Gas (GNV / GNL)",
+  Gasolina: "Diésel",
+};
+function FormSectionHeading({
+  icon: Icon,
+  children,
+  separated = false,
+}: {
+  icon: LucideIcon;
+  children: string;
+  separated?: boolean;
+}) {
+  return (
+    <h3
+      className={`flex items-center gap-3 md:col-span-2 ${
+        separated ? "border-t border-border pt-5" : ""
+      }`}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary">
+        <Icon size={17} aria-hidden />
+      </span>
+      <span className="text-base font-semibold tracking-tight text-navy">
+        {children}
+      </span>
+    </h3>
+  );
+}
 export function FriForm({ preview = false }: { preview?: boolean }) {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
@@ -82,6 +116,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     clearDraft,
     startOver,
   } = useFriDraft({ enabled: !preview, reset, subscribe, getValues });
+  useEffect(() => {
+    void getPublicCatalogIndex().catch(() => {
+      // The picker retains remote search as a fallback if preloading is unavailable.
+    });
+  }, []);
   useEffect(() => {
     if (!ready || previousStep.current === step) return;
     previousStep.current = step;
@@ -206,6 +245,8 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     label: string,
     options: readonly string[],
     required = true,
+    optionLabels?: Record<string, string>,
+    hint?: string,
   ) => (
     <Field
       label={label}
@@ -213,10 +254,12 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       optional={!required}
       error={errors[name]?.message ? "Selecciona una opción válida" : undefined}
       htmlFor={name}
+      hint={hint}
     >
       <Select
         id={name}
         className={inputClass}
+        disabled={name === "fuelType" && !fuelGroup}
         aria-invalid={!!errors[name]}
         aria-describedby={errors[name] ? `${name}-error` : undefined}
         {...register(
@@ -246,7 +289,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         )}
       >
         <option value="">Selecciona una opción</option>
-        {options.map((v) => <option key={v}>{v}</option>)}
+        {options.map((v) => (
+          <option key={v} value={v}>
+            {optionLabels?.[v] ?? v}
+          </option>
+        ))}
       </Select>
     </Field>
   );
@@ -353,7 +400,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     );
   }
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
+    <div className="grid w-full min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
       <form
         noValidate
         onSubmit={(event) => {
@@ -382,7 +429,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             }
           })(event);
         }}
-        className="rounded-xl border border-border bg-white p-5 md:p-8"
+        className="w-full min-w-0 rounded-xl border border-border bg-white p-5 md:p-8"
       >
         {preview && (
           <p className="mb-6 rounded-lg bg-accent-soft p-3 text-sm text-primary">
@@ -398,8 +445,8 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           </p>
         )}
         {!preview && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background p-3 text-xs text-muted">
-            <p role="status">
+          <div className="mb-6 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-background p-3 text-xs text-muted">
+            <p className="min-w-0" role="status">
               {storageError
                 ? "Este navegador no permite guardar el avance. Mantén esta página abierta hasta enviar."
                 : restored
@@ -408,13 +455,13 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             </p>
             <button
               type="button"
-              className="inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-primary underline underline-offset-2"
+              className="inline-flex min-h-9 shrink-0 items-center rounded-lg px-1.5 text-xs font-semibold text-primary underline underline-offset-2"
               disabled={isSubmitting || checking || registered}
               onClick={() => {
                 resetDialog.current?.showModal();
               }}
             >
-              Empezar de nuevo
+              Reiniciar
             </button>
           </div>
         )}
@@ -430,13 +477,13 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             className="h-2 w-full overflow-hidden rounded-full accent-accent"
           />
         </div>
-        <ol className="mb-9 hidden grid-cols-4 gap-4 md:grid">
+        <ol className="mb-9 hidden grid-cols-4 gap-4 md:grid" aria-label="Pasos del formulario">
           {steps.map((label, i) => (
             <li
               key={label}
               aria-current={step === i ? "step" : undefined}
               className={`border-t-3 pt-3 ${
-                i <= step || editing
+                i <= step
                   ? "border-accent text-primary"
                   : "border-border text-muted"
               }`}
@@ -472,9 +519,17 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             </p>
           )}
         </div>
+        {error && (
+          <p
+            role="alert"
+            className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-danger"
+          >
+            {error}
+          </p>
+        )}
         <fieldset
           disabled={isSubmitting || registered}
-          className="grid min-w-0 gap-x-6 gap-y-5 md:grid-cols-2"
+          className="grid w-full min-w-0 gap-x-6 gap-y-5 md:grid-cols-2"
         >
           {step === 1 && (
             <CatalogVehiclePicker
@@ -489,97 +544,123 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           )}
           {step === 1 && selectedCatalog && (
             <div className="md:col-span-2 rounded-xl border border-accent-border bg-accent-soft p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary">FOB referencial</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Precio referencial en China (FOB)
+              </p>
               {selectedCatalog.price !== null ? (
                 <p className="mt-1 text-lg font-semibold text-navy">
-                  {selectedCatalog.currency} {selectedCatalog.price.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {selectedCatalog.currency} {selectedCatalog.price.toLocaleString(
+                    "es-PE",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
                 </p>
               ) : (
                 <p className="mt-1 text-sm font-medium text-navy">No hay un precio referencial publicado para este vehículo.</p>
               )}
-              <p className="mt-1 text-xs leading-5 text-muted">Es un valor referencial del catálogo; la cotización formal se preparará y enviará después en PDF.</p>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                Referencia del {selectedCatalog.source === "supplier_excel" ? "proveedor TMB" : "catálogo web de TMB"}. El precio puede cambiar; la cotización formal se enviará después en PDF.
+              </p>
             </div>
           )}
           {step === 0 && (
             <>
-              {select("documentType", "Tipo de documento", [
-                "DNI",
-                "RUC",
-                "CE",
-                "Pasaporte",
-              ])}
-              <Field
-                label="Número de documento"
-                required
-                htmlFor="documentNumber"
-                error={errors.documentNumber?.message}
-              >
-                <input
-                  id="documentNumber"
-                  type="text"
-                  className={inputClass}
-                  inputMode={documentRule.numeric ? "numeric" : "text"}
-                  maxLength={documentRule.maxLength}
-                  aria-describedby={`documentNumber-hint${
-                    errors.documentNumber ? " documentNumber-error" : ""
-                  }`}
-                  aria-invalid={!!errors.documentNumber}
-                  {...documentRegistration}
-                  onChange={(event) => {
-                    event.target.value = event.target.value
-                      .replace(documentRule.invalidCharacters, "")
-                      .slice(0, documentRule.maxLength);
-                    if (
-                      documentType === "RUC" &&
-                      !event.target.value.startsWith("20")
-                    ) {
-                      setValue("representative", "");
-                      clearErrors("representative");
-                    }
-                    void documentRegistration.onChange(event);
-                  }}
-                />
-                <p
-                  id="documentNumber-hint"
-                  className="mt-1.5 text-xs text-muted"
+              <section className="grid gap-x-6 gap-y-5 border-b border-border pb-5 md:col-span-2 md:grid-cols-2">
+                <FormSectionHeading icon={IdCard}>Identificación</FormSectionHeading>
+                {select("documentType", "Tipo de documento", [
+                  "DNI",
+                  "RUC",
+                  "CE",
+                  "Pasaporte",
+                ])}
+                <Field
+                  label="Número de documento"
+                  required
+                  htmlFor="documentNumber"
+                  error={errors.documentNumber?.message}
                 >
-                  {documentRule.hint}
-                </p>
-              </Field>
-              {documentType === "Pasaporte" &&
-                field("issuingCountry", "País emisor", true)}
-              {field(
-                "name",
-                corporate ? "Razón social" : "Nombres y apellidos",
-                true,
-              )}
-              {corporate && field("representative", "Representante legal")}
-              {field("company", "Empresa")}
-              {field("position", "Cargo")}
-              {select("department", "Departamento", departments)}
-              {field("mobile", "Celular", true, "tel")}
+                  <input
+                    id="documentNumber"
+                    type="text"
+                    className={inputClass}
+                    inputMode={documentRule.numeric ? "numeric" : "text"}
+                    maxLength={documentRule.maxLength}
+                    aria-describedby={`documentNumber-hint${
+                      errors.documentNumber ? " documentNumber-error" : ""
+                    }`}
+                    aria-invalid={!!errors.documentNumber}
+                    {...documentRegistration}
+                    onChange={(event) => {
+                      event.target.value = event.target.value
+                        .replace(documentRule.invalidCharacters, "")
+                        .slice(0, documentRule.maxLength);
+                      if (
+                        documentType === "RUC" &&
+                        !event.target.value.startsWith("20")
+                      ) {
+                        setValue("representative", "");
+                        clearErrors("representative");
+                      }
+                      void documentRegistration.onChange(event);
+                    }}
+                  />
+                  <p
+                    id="documentNumber-hint"
+                    className="mt-1.5 text-xs leading-5 text-muted"
+                  >
+                    {documentRule.hint}
+                  </p>
+                </Field>
+                {documentType === "Pasaporte" &&
+                  field("issuingCountry", "País emisor", true)}
+                {field(
+                  "name",
+                  corporate ? "Razón social" : "Nombres y apellidos",
+                  true,
+                )}
+                {corporate && field("representative", "Representante legal")}
+              </section>
+              <section className="grid gap-x-6 gap-y-5 md:col-span-2 md:grid-cols-2">
+                <FormSectionHeading icon={Contact}>Datos de contacto</FormSectionHeading>
+                {field("company", "Empresa")}
+                {field("position", "Cargo")}
+                {select("department", "Departamento", departments)}
+                {field("mobile", "Celular", true, "tel")}
+              </section>
             </>
           )}
           {step === 1 && (
-            <>
+            <section className="grid gap-x-6 gap-y-5 border-b border-border pb-5 md:col-span-2 md:grid-cols-2">
+              <FormSectionHeading icon={CarFront}>Datos del vehículo</FormSectionHeading>
               {field("brand", "Marca", true)}
               {field("model", "Modelo", true)}
               {field("version", "Versión")}
               {field("year", "Año", true, "number")}
               {field("color", "Color")}
+              <FormSectionHeading icon={SlidersHorizontal} separated>
+                Características
+              </FormSectionHeading>
               {field("quantity", "Cantidad", true, "number")}
-              {select("fuelGroup", "Grupo de combustible", fuelGroups)}
+              {select(
+                "fuelGroup",
+                "Grupo de combustible",
+                fuelGroups,
+                true,
+                fuelGroupLabels,
+              )}
               {select(
                 "fuelType",
-                fuelGroup ? "Tipo de combustible" : "Tipo de combustible · elige primero un grupo",
+                "Tipo de combustible",
                 fuelGroup ? fuelTypesByGroup[fuelGroup] : [],
+                true,
+                undefined,
+                fuelGroup ? undefined : "Elige primero el grupo de combustible.",
               )}
               {select("transmission", "Transmisión", transmissions)}
               {field("power", "Potencia (indica unidad)")}
               {fuelGroup === "EV" &&
                 field("autonomy", "Autonomía EV (km)", false, "number")}
               {textArea("equipment", "Equipamiento requerido")}
-            </>
+            </section>
           )}
           {step === 2 && (
             <>
@@ -591,20 +672,28 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                   ? "hasSupplier-error"
                   : undefined}
               >
-                <legend className="mb-3 text-sm font-medium">
+                <legend className="mb-1 text-sm font-medium">
                   ¿Tiene un proveedor de preferencia?{" "}
                   <span className="text-primary">*</span>
                 </legend>
-                <div className="flex gap-5">
-                  {["Sí", "No"].map((value) => (
+                <p className="mb-3 text-xs leading-5 text-muted">
+                  Si respondes que sí, te pediremos los datos comerciales del proveedor.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Sí", "Conozco al proveedor y completaré sus datos."],
+                    ["No", "Continuaré sin indicar un proveedor."],
+                  ].map(([value, description]) => (
                     <label
                       key={value}
-                      className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent-soft"
+                      className="flex min-h-16 cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-accent-soft focus-within:ring-2 focus-within:ring-accent/20"
                     >
                       <input
                         type="radio"
                         value={value}
-                        className="h-4 w-4 accent-primary"
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                        aria-labelledby={`supplier-option-${value}-label`}
+                        aria-describedby={`supplier-option-${value}-description`}
                         {...register("hasSupplier", {
                           onChange: (event) => {
                             if (event.target.value === "No") {
@@ -622,7 +711,12 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                           },
                         })}
                       />
-                      {value}
+                      <span className="min-w-0">
+                        <span id={`supplier-option-${value}-label`} className="block text-sm font-semibold">{value}</span>
+                        <span id={`supplier-option-${value}-description`} className="mt-0.5 block text-xs leading-5 text-muted">
+                          {description}
+                        </span>
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -665,11 +759,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                       ¿Acepta alternativas equivalentes?{" "}
                       <span className="text-primary">*</span>
                     </legend>
-                    <div className="flex gap-5">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {["Sí", "No"].map((v) => (
                         <label
                           key={v}
-                          className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent-soft"
+                          className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-4 text-sm transition-colors hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-accent-soft focus-within:ring-2 focus-within:ring-accent/20"
                         >
                           <input
                             type="radio"
@@ -749,14 +843,6 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             solicitudes.
           </p>
         )}
-        {error && (
-          <p
-            role="alert"
-            className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-danger"
-          >
-            {error}
-          </p>
-        )}
         <div className="sticky bottom-0 z-10 -mx-5 mt-8 flex items-center justify-between gap-3 border-t border-border bg-white px-5 py-4 md:static md:mx-0 md:px-0 md:pt-5">
           {(step > 0 || editing) && (
             <Button
@@ -804,30 +890,27 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             )}
         </div>
       </form>
-      <aside className="hidden h-fit rounded-xl border border-border bg-white p-6 xl:block">
+      <aside className="hidden h-fit min-w-0 rounded-xl border border-border bg-white p-5 xl:block">
         <span className="rounded bg-accent-soft px-2 py-1 text-[10px] font-bold tracking-wider text-primary">
           FRI DIGITAL
         </span>
-        <h3 className="mt-5 text-lg font-semibold">
-          Tu importación empieza aquí
-        </h3>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          Comparte tu requerimiento para que nuestro equipo pueda investigar las
-          mejores opciones.
+        <h3 className="mt-4 text-lg font-semibold">Así funciona</h3>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Envía tu solicitud y el equipo de TMB revisará las opciones.
         </p>
-        <div className="mt-6 space-y-5">
+        <div className="mt-5 space-y-4">
           {[
             [
               "01",
-              "Completa tu solicitud",
-              "Datos del cliente y del vehículo.",
+              "Completa el FRI",
+              "Datos de contacto y vehículo.",
             ],
             [
               "02",
-              "Revisamos tu requerimiento",
-              "El equipo de TMB evaluará la información.",
+              "Revisión de TMB",
+              "Verificaremos los datos y opciones.",
             ],
-            ["03", "Descarga tu FRI", "Recibe tu ficha en PDF al finalizar."],
+            ["03", "Descarga tu ficha", "Al finalizar podrás descargar el PDF."],
           ].map(([n, t, d]) => (
             <div key={n} className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[10px] font-bold text-primary">

@@ -4,12 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { CatalogVehiclePicker } from "./catalog-vehicle-picker";
 import type { CatalogVehicle } from "../api";
 
-const { searchCatalog, getCatalogVehicle } = vi.hoisted(() => ({
+const { searchCatalog, getCatalogVehicle, getPublicCatalogIndex } = vi.hoisted(() => ({
   searchCatalog: vi.fn(),
   getCatalogVehicle: vi.fn(),
+  getPublicCatalogIndex: vi.fn(),
 }));
 
-vi.mock("../api", () => ({ searchCatalog, getCatalogVehicle }));
+vi.mock("../api", () => ({ searchCatalog, getCatalogVehicle, getPublicCatalogIndex }));
 
 const vehicle: CatalogVehicle = {
   id: "7bcaf98d-7e73-48e6-9b7b-cc25ef0fd23b",
@@ -40,7 +41,9 @@ describe("selector de vehículos con búsqueda", () => {
   beforeEach(() => {
     searchCatalog.mockReset();
     getCatalogVehicle.mockReset();
+    getPublicCatalogIndex.mockReset();
     searchCatalog.mockResolvedValue([vehicle]);
+    getPublicCatalogIndex.mockResolvedValue([vehicle]);
   });
 
   it("filtra por marca o modelo y completa al elegir un resultado con teclado", async () => {
@@ -54,6 +57,8 @@ describe("selector de vehículos con búsqueda", () => {
     const input = screen.getByRole("combobox", { name: /Marca o modelo/ });
     await user.type(input, "corolla");
     await screen.findByRole("option");
+    expect(searchCatalog).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Excel proveedor|Catálogo web|Proveedor TMB|Catálogo web TMB/)).toBeNull();
     await user.keyboard("{ArrowDown}{Enter}");
 
     await waitFor(() => expect(onSelect).toHaveBeenCalledWith(vehicle));
@@ -67,5 +72,15 @@ describe("selector de vehículos con búsqueda", () => {
     expect((input as HTMLInputElement).value).toBe("Toyota Corolla Cross · 2026");
     expect(screen.getByText(/FOB \(USD\): USD 16,370/)).toBeTruthy();
     expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("usa la búsqueda remota como respaldo si no se puede precargar el catálogo", async () => {
+    getPublicCatalogIndex.mockRejectedValue(new Error("offline"));
+    const user = userEvent.setup();
+    render(<CatalogVehiclePicker onSelect={vi.fn()} onClear={vi.fn()} />);
+
+    await user.type(screen.getByRole("combobox", { name: /Marca o modelo/ }), "toyota");
+    await screen.findByRole("option");
+    expect(searchCatalog).toHaveBeenCalledWith("toyota");
   });
 });
