@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, FileText, RotateCcw, Save } from "lucide-react";
+import { ArrowLeft, Check, FileText, Mail, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import { loadFri, type Fri } from "@/features/fri/api";
 import { calculateQuotation } from "../calculations";
-import { loadQuotation, loadQuotationSettings, saveQuotation, type Quotation } from "../api";
+import { loadQuotation, loadQuotationSettings, saveQuotation, sendQuotationEmail, type Quotation } from "../api";
 import {
   localCostKeys,
   localCostLabels,
@@ -32,7 +32,9 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
   const [input, setInput] = useState<QuotationInput>({ fobUsd: 0, freightUsd: 0, adjustments: {} });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [error, setError] = useState("");
+  const [emailNotice, setEmailNotice] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -43,15 +45,27 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
         setFri(request);
         setSettings(existing?.settings ?? base);
         setQuote(existing);
+        setSaved(Boolean(existing));
         const reference = request.data.catalogReference;
         const catalogFob = reference?.currency.toUpperCase() === "USD"
           ? reference.price ?? 0
           : 0;
-        setInput(existing?.input ?? {
-          fobUsd: catalogFob,
-          freightUsd: 0,
-          adjustments: {},
-        });
+        const referenceFreight = request.data.vehicleType === "Camión"
+          ? 9_000
+          : request.data.vehicleType === "Automóvil"
+          ? 3_000
+          : 0;
+        setInput(existing?.input
+          ? {
+            ...existing.input,
+            fobUsd: existing.input.fobUsd || catalogFob,
+            freightUsd: existing.input.freightUsd || referenceFreight,
+          }
+          : {
+            fobUsd: catalogFob,
+            freightUsd: referenceFreight,
+            adjustments: {},
+          });
       })
       .catch((e) => active && setError(e instanceof Error ? e.message : "No se pudo cargar la cotización"))
       .finally(() => active && setLoading(false));
@@ -63,6 +77,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
   function setAmount(key: "fobUsd" | "freightUsd", text: string) {
     setInput((current) => ({ ...current, [key]: text === "" ? 0 : Number(text) }));
     setSaved(false);
+    setEmailNotice("");
   }
   function setAdjustment(key: Exclude<keyof QuotationAdjustments, "localCosts">, text: string, asPercent = false) {
     setInput((current) => {
@@ -72,6 +87,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
       return { ...current, adjustments };
     });
     setSaved(false);
+    setEmailNotice("");
   }
   function setLocalAdjustment(key: (typeof localCostKeys)[number], text: string) {
     setInput((current) => {
@@ -86,10 +102,12 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
       return { ...current, adjustments };
     });
     setSaved(false);
+    setEmailNotice("");
   }
   function resetAdjustments() {
     setInput((current) => ({ ...current, adjustments: {} }));
     setSaved(false);
+    setEmailNotice("");
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -112,6 +130,21 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la cotización");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function sendByEmail() {
+    if (!fri || !quote || !saved || !fri.data.email) return;
+    setSendingEmail(true);
+    setError("");
+    setEmailNotice("");
+    try {
+      const result = await sendQuotationEmail(requestId);
+      setEmailNotice(`Proforma enviada a ${result.recipient}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo enviar la proforma por correo.");
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -151,8 +184,8 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                 <h2 className="font-semibold">Importación marítima FCL</h2>
                 <p className="mt-1 text-xs text-muted">Precios proporcionados por la proveedora.</p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <Field label="FOB (USD)" required hint={fri.data.catalogReference?.currency.toUpperCase() === "USD" && fri.data.catalogReference.price !== null ? `Precargado desde el catálogo: USD ${fmt.format(fri.data.catalogReference.price)}. Puedes corregirlo con el valor confirmado por la proveedora.` : "Ingresa el FOB confirmado con la proveedora."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.fobUsd || undefined)} onChange={(e) => setAmount("fobUsd", e.target.value)} required /></Field>
-                  <Field label="Flete internacional (USD)" required><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.freightUsd || undefined)} onChange={(e) => setAmount("freightUsd", e.target.value)} required /></Field>
+                  <Field label="FOB (USD)" required hint={fri.data.catalogReference?.currency.toUpperCase() === "USD" && fri.data.catalogReference.price !== null ? `Precio referencial del ${fri.data.catalogReference.sourceType === "supplier_excel" ? "Excel de proveedora" : "catálogo web"}: USD ${fmt.format(fri.data.catalogReference.price)}. Confirma o ajusta con la proveedora.` : "Este FRI no tiene un FOB referencial de catálogo. Ingresa el precio confirmado por la proveedora."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.fobUsd || undefined)} onChange={(e) => setAmount("fobUsd", e.target.value)} required /></Field>
+                  <Field label="Flete internacional (USD)" required hint={fri.data.vehicleType === "Automóvil" ? "Valor referencial precargado: USD 3,000 para automóvil. Confirma o ajusta el flete real." : fri.data.vehicleType === "Camión" ? "Valor referencial precargado: USD 9,000 para camión. Confirma o ajusta el flete real." : "El FRI no especifica el tipo de vehículo. Ingresa el flete internacional confirmado."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.freightUsd || undefined)} onChange={(e) => setAmount("freightUsd", e.target.value)} required /></Field>
                 </div>
               </section>
 
@@ -214,7 +247,13 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
               <div className="mt-5 border-t border-border pt-4">
                 {quote && <p className="mb-3 flex items-center gap-2 text-xs text-success"><Check size={15} />Cotización guardada el {new Date(quote.updatedAt).toLocaleDateString("es-PE")}</p>}
                 {saved && <p role="status" className="mb-3 flex items-center gap-2 text-xs text-success"><Check size={15} />Guardada. La solicitud pasó a Cotizado.</p>}
+                {emailNotice && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-xs text-green-900">{emailNotice}</p>}
                 <Button className="w-full" type="submit" disabled={saving || !input.fobUsd || !input.freightUsd}><Save size={16} />{saving ? "Guardando…" : quote ? "Guardar cambios" : "Guardar cotización"}</Button>
+                <Button className="mt-2 w-full" type="button" variant="secondary" onClick={() => void sendByEmail()} disabled={!quote || !saved || !fri.data.email || saving || sendingEmail}>
+                  <Mail size={16} />{sendingEmail ? "Enviando proforma…" : "Enviar proforma al cliente"}
+                </Button>
+                {!fri.data.email && <p className="mt-2 text-center text-[11px] leading-5 text-muted">La solicitud FRI no tiene correo; no se puede enviar la proforma.</p>}
+                {quote && !saved && fri.data.email && <p className="mt-2 text-center text-[11px] leading-5 text-muted">Guarda los cambios antes de enviar la proforma.</p>}
                 <p className="mt-2 text-center text-[11px] leading-5 text-muted">Las tarifas base no se modifican desde esta pantalla.</p>
               </div>
             </aside>

@@ -1,6 +1,6 @@
 # Conectar Resend
 
-La integración usa Resend desde `fri-api`; la clave nunca llega al navegador. El panel ofrece una comprobación de configuración y un envío manual de prueba al correo de la sesión del vendedor. El FRI también acepta un correo opcional y manda un acuse con el código de solicitud. Los recordatorios no están activados.
+La integración usa Resend desde `fri-api`; la clave nunca llega al navegador. El panel ofrece una comprobación de configuración y un envío manual de prueba al correo de la sesión del vendedor. El FRI acepta un correo opcional y manda un acuse con su PDF adjunto. Después, la vendedora puede enviar la proforma PDF desde la cotización guardada. Los recordatorios no están activados.
 
 ## 1. Modo de prueba
 
@@ -21,6 +21,6 @@ No pegues ni guardes la API key en el repositorio, `.env.example`, el navegador 
 
 ## 3. Verificar
 
-Inicia sesión en el panel y abre **Correo y notificaciones**. **Enviar correo de prueba** manda un mensaje simple al correo de la cuenta del vendedor que inició sesión; la función limita estas pruebas a tres por vendedor cada hora. Para probar la confirmación del cliente, llena el FRI y escribe tu dirección en **Correo**.
+Inicia sesión en el panel y abre **Correo y notificaciones**. **Enviar correo de prueba** manda un mensaje simple al correo de la cuenta del vendedor que inició sesión; la función limita estas pruebas a tres por vendedor cada hora. Para probar la confirmación del cliente con el FRI adjunto, llena el formulario y escribe tu dirección en **Correo**.
 
-Si Resend no está disponible, el FRI igual se guarda y la pantalla de éxito indica que no se pudo mandar la confirmación. Los recordatorios requieren definir por separado la cadencia, el consentimiento y las condiciones para detener los mensajes.
+Si Resend no está disponible, el FRI igual se guarda y la pantalla de éxito indica que no se pudo mandar la confirmación. Si falla el envío de la proforma, la cotización queda guardada y la vendedora puede volver a intentarlo. Los recordatorios requieren definir por separado la cadencia, el consentimiento y las condiciones para detener los mensajes.

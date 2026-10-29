@@ -12,4 +12,4 @@ El envío público se habilita con `FRI_ACCEPT_SUBMISSIONS=true` después de imp
 
 El PDF usa PDFKit en Deno con fuentes Carlito embebidas para el despliegue por API. Las fuentes tienen licencia OFL en `_shared/fonts-OFL.txt`. Se genera bajo demanda y requiere autorización; no se muestra dentro de la página.
 
-Resend tiene acciones privadas de estado y envío de prueba al vendedor autenticado en `fri-api`. Además, al registrar un FRI con correo opcional, envía al cliente una confirmación con el código asignado; el registro se conserva si Resend falla. El remitente usa el dominio verificado de TMB; ver `../RESEND_SETUP.md`. Los recordatorios, Meta y Cron siguen pendientes.
+Resend tiene acciones privadas de estado y envío de prueba al vendedor autenticado en `fri-api`. Al registrar un FRI con correo opcional, envía una confirmación con el código y el PDF del FRI adjunto; si Resend falla, conserva la solicitud. La vendedora también puede enviar al cliente la proforma PDF de una cotización guardada. El remitente usa el dominio verificado de TMB; ver `../RESEND_SETUP.md`. Los recordatorios, Meta y Cron siguen pendientes.

@@ -85,7 +85,7 @@ export default function EmailSettingsPage() {
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-muted marker:font-semibold marker:text-primary">
               <li>El dominio <code className="rounded bg-background px-1.5 py-0.5 text-xs text-navy">tmbimporta.com</code> está verificado en Resend.</li>
               <li>Supabase usa <code className="rounded bg-background px-1.5 py-0.5 text-xs text-navy">TMB Importaciones &lt;notificaciones@tmbimporta.com&gt;</code> como remitente.</li>
-              <li>Usa el botón de arriba para probar el envío al correo de tu cuenta de vendedor. El formulario FRI también envía una confirmación cuando el cliente indica un correo.</li>
+              <li>Usa el botón de arriba para probar el envío a tu cuenta de vendedor. El formulario FRI envía una confirmación con el PDF adjunto cuando se indica un correo.</li>
             </ol>
             <p className="mt-4 rounded-lg bg-background p-3 text-xs leading-5 text-muted">Los recordatorios automáticos aún no están activados. Si el correo de confirmación falla, la solicitud FRI igual queda registrada.</p>
           </div>

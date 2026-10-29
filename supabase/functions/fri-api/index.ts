@@ -89,6 +89,7 @@ const requestSchema = z.discriminatedUnion("action", [
     id: z.uuid(),
     input: z.unknown(),
   }).strict(),
+  z.object({ action: z.literal("quotation-send"), id: z.uuid() }).strict(),
   z.object({ action: z.literal("review"), id: z.uuid() }).strict(),
   z.object({
     action: z.literal("receipt"),
@@ -332,35 +333,40 @@ export async function handler(req: Request): Promise<Response> {
         if (!apiKey || !sender) {
           emailStatus = "not_configured";
         } else {
-          const { data: request, error: requestError } = await admin
-            .from("tmb_fri_requests")
-            .select("code")
-            .eq("id", data)
-            .maybeSingle();
-          if (requestError || !request?.code) {
+          try {
+            const { data: request, error: requestError } = await admin
+              .from("tmb_fri_requests")
+              .select("id,created_at,code,status,data")
+              .eq("id", data)
+              .maybeSingle();
+            if (requestError || !request) throw new Error("FRI record unavailable");
+            const fri = map(request);
+            const { PdfService } = await import("../_shared/pdf.ts");
+            const pdf = await new PdfService().generate(fri);
+            const safeCode = fri.code.replace(/[^a-zA-Z0-9-]/g, "-");
+            const response = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "Idempotency-Key": `tmb-fri-confirmation-${data}`,
+              },
+              body: JSON.stringify({
+                from: sender,
+                to: [recipient],
+                subject: `Solicitud FRI recibida · ${fri.code}`,
+                html: `<div style="font-family:Arial,sans-serif;color:#12385b"><h1 style="font-size:20px">Recibimos tu solicitud</h1><p>Adjuntamos el PDF de tu ficha de requerimiento de importación.</p><p>Código de solicitud: <strong>${fri.code}</strong></p><p>El equipo de TMB revisará la información y preparará una cotización referencial.</p></div>`,
+                text: `Recibimos tu solicitud FRI. Adjuntamos el PDF de tu ficha. Código de solicitud: ${fri.code}. El equipo de TMB revisará la información y preparará una cotización referencial.`,
+                attachments: [{
+                  filename: `FRI-${safeCode}.pdf`,
+                  content: pdf.toString("base64"),
+                }],
+              }),
+            });
+            emailStatus = response.ok ? "sent" : "failed";
+            if (!response.ok) await response.text().catch(() => "");
+          } catch {
             emailStatus = "failed";
-          } else {
-            try {
-              const response = await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${apiKey}`,
-                  "Content-Type": "application/json",
-                  "Idempotency-Key": `tmb-fri-confirmation-${data}`,
-                },
-                body: JSON.stringify({
-                  from: sender,
-                  to: [recipient],
-                  subject: `Solicitud FRI recibida · ${request.code}`,
-                  html: `<div style="font-family:Arial,sans-serif;color:#12385b"><h1 style="font-size:20px">Recibimos tu solicitud</h1><p>Tu ficha de requerimiento de importación se registró correctamente.</p><p>Código de solicitud: <strong>${request.code}</strong></p><p>El equipo de TMB revisará la información y preparará una cotización referencial.</p></div>`,
-                  text: `Recibimos tu solicitud FRI. Código de solicitud: ${request.code}. El equipo de TMB revisará la información y preparará una cotización referencial.`,
-                }),
-              });
-              emailStatus = response.ok ? "sent" : "failed";
-              if (!response.ok) await response.text().catch(() => "");
-            } catch {
-              emailStatus = "failed";
-            }
           }
         }
       }
@@ -770,6 +776,74 @@ export async function handler(req: Request): Promise<Response> {
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });
+      }
+      if (body.action === "quotation-send") {
+        await limit(`seller:quotation-email:${seller.id}`, 10, 3600);
+        const [
+          { data: friRow, error: friError },
+          { data: quotation, error: quotationError },
+        ] = await Promise.all([
+          admin.from("tmb_fri_requests")
+            .select("id,created_at,code,status,data")
+            .eq("id", body.id).maybeSingle(),
+          admin.from("tmb_quotations")
+            .select("input,settings_snapshot,updated_at")
+            .eq("request_id", body.id).maybeSingle(),
+        ]);
+        if (friError) throw friError;
+        if (quotationError) throw quotationError;
+        if (!friRow) throw new HttpError(404, "Solicitud no encontrada");
+        if (!quotation) throw new HttpError(409, "Guarda la cotización antes de enviarla");
+        const fri = map(friRow);
+        const recipient = z.email().safeParse(fri.data.email?.trim() || "");
+        if (!recipient.success) {
+          throw new HttpError(409, "La solicitud no tiene un correo válido para enviar la proforma");
+        }
+        const apiKey = Deno.env.get("RESEND_API_KEY");
+        const sender = Deno.env.get("RESEND_FROM_EMAIL")?.trim();
+        if (!apiKey || !sender) {
+          throw new HttpError(503, "Configura RESEND_API_KEY y RESEND_FROM_EMAIL en los secretos de Supabase.");
+        }
+        const input = quotationInputSchema.parse(quotation.input);
+        const settings = quotationSettingsSchema.parse(quotation.settings_snapshot);
+        const calculation = calculateQuotation(input, settings);
+        const { QuotationPdfService } = await import("../_shared/quotation-pdf.ts");
+        const pdf = await new QuotationPdfService().generate(fri, {
+          input,
+          settings,
+          calculation,
+          updatedAt: quotation.updated_at,
+        });
+        const safeCode = fri.code.replace(/[^a-zA-Z0-9-]/g, "-");
+        let response: Response;
+        try {
+          response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `tmb-quotation-${await hash(`${body.id}:${quotation.updated_at}`)}`,
+            },
+            body: JSON.stringify({
+              from: sender,
+              to: [recipient.data],
+              subject: `Cotización comercial TMB · ${fri.code}`,
+              html: `<div style="font-family:Arial,sans-serif;color:#12385b"><h1 style="font-size:20px">Tu cotización está lista</h1><p>Adjuntamos la proforma referencial solicitada.</p><p>Solicitud: <strong>${fri.code}</strong></p><p>Los precios, impuestos y gastos están sujetos a confirmación del proveedor y pueden variar.</p><p>Saludos,<br/>TMB Importaciones</p></div>`,
+              text: `Tu cotización está lista. Adjuntamos la proforma referencial de la solicitud ${fri.code}. Los precios, impuestos y gastos están sujetos a confirmación del proveedor y pueden variar.\n\nTMB Importaciones`,
+              attachments: [{
+                filename: `PROFORMA-${safeCode}.pdf`,
+                content: pdf.toString("base64"),
+              }],
+            }),
+          });
+        } catch {
+          throw new HttpError(502, "No pudimos conectar con Resend para enviar la proforma. La cotización sigue guardada; inténtalo de nuevo.");
+        }
+        if (!response.ok) {
+          await response.text().catch(() => "");
+          throw new HttpError(502, "Resend rechazó el envío de la proforma. La cotización sigue guardada; revisa la configuración del remitente.");
+        }
+        return json({ success: true, recipient: recipient.data });
       }
       if (body.action === "list") {
         const { data, error } = await user.from("tmb_fri_requests").select(

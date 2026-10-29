@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, CheckCircle2, FileText, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle2, FileText } from "lucide-react";
 
 import { Brand } from "@/components/ui/brand";
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,8 @@ export function FriDetails({
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [quoteAvailable, setQuoteAvailable] = useState(false);
-  const [quoteChecking, setQuoteChecking] = useState(false);
   const [quoteDownloading, setQuoteDownloading] = useState(false);
   const [quoteError, setQuoteError] = useState("");
-  const [quoteAttempt, setQuoteAttempt] = useState(0);
   const friStatus = fri?.status;
   useEffect(() => {
     let active = true;
@@ -82,7 +80,6 @@ export function FriDetails({
     if (!token) return;
 
     const check = async () => {
-      if (active) setQuoteChecking(true);
       try {
         const result = await quotationReceiptStatus(id, token);
         if (!active) return;
@@ -96,7 +93,6 @@ export function FriDetails({
         );
       } finally {
         if (active) {
-          setQuoteChecking(false);
           if (!foundQuotation) timer = setTimeout(() => void check(), 30_000);
         }
       }
@@ -106,7 +102,7 @@ export function FriDetails({
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [id, receipt, friStatus, quoteAttempt]);
+  }, [id, receipt, friStatus]);
 
   const handleQuotationDownload = async () => {
     const token = getReceiptToken(id);
@@ -205,59 +201,18 @@ export function FriDetails({
       )}
       {fri && (
         <>
-          {receipt && (
-            <div className="mb-6 rounded-xl border border-accent-border bg-accent-soft p-5">
-              <h2 className="text-sm font-semibold text-navy">¿Qué sigue?</h2>
-              <p className="mt-2 text-sm leading-6 text-navy">
-                Tu solicitud empieza en «Pendiente a revisar». Descarga y
-                conserva el PDF como constancia mientras TMB prepara y revisa
-                la cotización de tu requerimiento.
-              </p>
-              <p className="mt-2 text-xs leading-5 text-navy">
-                Cuando la cotización esté lista podrás descargar la proforma
-                desde esta misma página.
-              </p>
-              {emailStatus === "sent" && (
-                <p role="status" className="mt-3 text-sm font-medium text-navy">
-                  Enviamos una confirmación de tu solicitud al correo que indicaste.
-                </p>
-              )}
-              {(emailStatus === "failed" || emailStatus === "not_configured") && (
-                <p role="status" className="mt-3 text-sm font-medium text-red-700">
-                  Tu solicitud quedó registrada, pero no pudimos enviar el correo de confirmación. Conserva el PDF descargado como constancia.
-                </p>
-              )}
-              {emailStatus === "not_provided" && (
-                <p role="status" className="mt-3 text-sm text-navy">
-                  Puedes descargar el PDF como constancia de tu solicitud.
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                {quoteAvailable ? (
-                  <span role="status" className="text-sm font-medium text-navy">
-                    La cotización está lista para descargar.
-                  </span>
-                ) : (
-                  <span role="status" className="text-sm text-navy">
-                    {quoteChecking
-                      ? "Consultando si la cotización está lista…"
-                      : "La cotización todavía no está disponible."}
-                  </span>
-                )}
-                <Button
-                  variant="secondary"
-                  disabled={quoteChecking}
-                  onClick={() => setQuoteAttempt((value) => value + 1)}
-                  className="inline-flex items-center gap-2"
-                >
-                  <RefreshCw size={14} className={quoteChecking ? "animate-spin" : ""} />
-                  Actualizar
-                </Button>
-              </div>
-              {quoteError && (
-                <p role="alert" className="mt-2 text-sm text-danger">{quoteError}</p>
-              )}
-            </div>
+          {receipt && emailStatus === "sent" && (
+            <p role="status" className="mb-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+              Enviamos el FRI en PDF al correo que indicaste.
+            </p>
+          )}
+          {receipt && (emailStatus === "failed" || emailStatus === "not_configured") && (
+            <p role="status" className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              La solicitud quedó registrada, pero no se pudo enviar el correo. Puedes descargar el PDF desde esta página.
+            </p>
+          )}
+          {quoteError && (
+            <p role="alert" className="mb-5 text-sm text-danger">{quoteError}</p>
           )}
           {!receipt && fri && (
             <Link

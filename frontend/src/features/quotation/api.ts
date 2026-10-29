@@ -62,3 +62,10 @@ export async function saveQuotation(requestId: string, input: QuotationInput) {
     await callFriFunction({ action: "quotation-save", id: requestId, input: valid }, true),
   );
 }
+
+export async function sendQuotationEmail(requestId: string) {
+  return z.object({
+    success: z.literal(true),
+    recipient: z.string().email(),
+  }).parse(await callFriFunction({ action: "quotation-send", id: requestId }, true));
+}
