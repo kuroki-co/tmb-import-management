@@ -8,6 +8,7 @@ import {
   ArrowRight,
   CarFront,
   Check,
+  ChevronDown,
   Contact,
   FileText,
   IdCard,
@@ -50,6 +51,9 @@ const fuelGroupLabels: Record<(typeof fuelGroups)[number], string> = {
   Gas: "Gas (GNV / GNL)",
   Gasolina: "Diésel",
 };
+const normalizeSearchText = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+
 function FormSectionHeading({
   icon: Icon,
   children,
@@ -82,6 +86,10 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   const [previewConfirmed, setPreviewConfirmed] = useState(false);
   const [selectedCatalog, setSelectedCatalog] = useState<CatalogVehicle | null>(null);
   const [manualVehicleEntry, setManualVehicleEntry] = useState(false);
+  const [departmentQuery, setDepartmentQuery] = useState("");
+  const [departmentOpen, setDepartmentOpen] = useState(false);
+  const [departmentEditing, setDepartmentEditing] = useState(false);
+  const [departmentActiveIndex, setDepartmentActiveIndex] = useState(-1);
   const checkingRef = useRef(false);
   const sendingRef = useRef(false);
   const resetDialog = useRef<HTMLDialogElement>(null);
@@ -133,6 +141,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   }, [step, ready, setFocus]);
   const documentType = useWatch({ control, name: "documentType" });
   const number = useWatch({ control, name: "documentNumber" }) || "";
+  const departmentValue = useWatch({ control, name: "department" }) || "";
   const hasSupplier = useWatch({ control, name: "hasSupplier" });
   const catalogVehicleId = useWatch({ control, name: "catalogVehicleId" });
   const vehicleDraftValues = useWatch({
@@ -140,6 +149,12 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     name: ["vehicleType", "brand", "model", "version", "year", "color"],
   });
   const fuelGroup = useWatch({ control, name: "fuelGroup" });
+  const departmentSearchQuery = departmentEditing && departmentQuery === departmentValue
+    ? ""
+    : departmentQuery;
+  const matchingDepartments = departments.filter((department) =>
+    normalizeSearchText(department).includes(normalizeSearchText(departmentSearchQuery.trim())),
+  );
   const corporate = documentType === "RUC" && number.startsWith("20");
   const showVehicleDetails = Boolean(
     selectedCatalog || catalogVehicleId || manualVehicleEntry || vehicleDraftValues.some(Boolean),
@@ -303,6 +318,123 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           </option>
         ))}
       </Select>
+    </Field>
+  );
+  const chooseDepartment = (department: (typeof departments)[number]) => {
+    setValue("department", department, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    setDepartmentQuery("");
+    setDepartmentEditing(false);
+    setDepartmentOpen(false);
+  };
+  const departmentSelect = (
+    <Field
+      label="Departamento"
+      required
+      error={errors.department?.message ? "Selecciona un departamento válido" : undefined}
+      htmlFor="department"
+      hint="Escribe para buscar entre los departamentos del Perú."
+    >
+      <div className="relative">
+        <input
+          id="department"
+          className={`${inputClass} pr-10`}
+          value={departmentEditing ? departmentQuery : departmentValue}
+          placeholder="Busca un departamento"
+          autoComplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-expanded={departmentOpen}
+          aria-controls={departmentOpen ? "department-options" : undefined}
+          aria-activedescendant={
+            departmentOpen && departmentActiveIndex >= 0 && matchingDepartments[departmentActiveIndex]
+              ? `department-option-${departmentActiveIndex}`
+              : undefined
+          }
+          aria-invalid={!!errors.department}
+          aria-describedby={describedBy("department")}
+          onFocus={(event) => {
+            setDepartmentEditing(true);
+            setDepartmentQuery(departmentValue);
+            setDepartmentOpen(true);
+            setDepartmentActiveIndex(-1);
+            // Typing immediately replaces the current selection, like a native select search.
+            event.currentTarget.select();
+          }}
+          onChange={(event) => {
+            const query = event.target.value;
+            setDepartmentEditing(true);
+            setDepartmentQuery(query);
+            setDepartmentOpen(true);
+            setDepartmentActiveIndex(-1);
+            if (departmentValue) {
+              setValue("department", "" as FriFormValues["department"], { shouldDirty: true });
+            }
+            clearErrors("department");
+          }}
+          onBlur={() => {
+            setDepartmentOpen(false);
+            setDepartmentEditing(false);
+            setDepartmentQuery("");
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" && matchingDepartments.length > 0) {
+              event.preventDefault();
+              setDepartmentOpen(true);
+              setDepartmentActiveIndex((index) =>
+                index < 0 ? 0 : (index + 1) % matchingDepartments.length,
+              );
+            } else if (event.key === "ArrowUp" && matchingDepartments.length > 0) {
+              event.preventDefault();
+              setDepartmentOpen(true);
+              setDepartmentActiveIndex((index) =>
+                index < 0 ? matchingDepartments.length - 1 : (index - 1 + matchingDepartments.length) % matchingDepartments.length,
+              );
+            } else if (event.key === "Enter" && departmentOpen && matchingDepartments.length > 0) {
+              event.preventDefault();
+              chooseDepartment(matchingDepartments[Math.max(0, departmentActiveIndex)]);
+            } else if (event.key === "Escape") {
+              setDepartmentOpen(false);
+              setDepartmentEditing(false);
+              setDepartmentQuery("");
+            }
+          }}
+        />
+        <ChevronDown
+          size={16}
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+        />
+        {departmentOpen && (
+          <ul
+            id="department-options"
+            role="listbox"
+            aria-label="Departamentos del Perú"
+            className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg"
+          >
+            {matchingDepartments.length > 0 ? matchingDepartments.map((department, index) => (
+              <li
+                id={`department-option-${index}`}
+                key={department}
+                role="option"
+                aria-selected={department === departmentValue}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setDepartmentActiveIndex(index)}
+                onClick={() => chooseDepartment(department)}
+                className={`cursor-pointer px-3.5 py-2.5 text-sm text-foreground ${
+                  index === departmentActiveIndex ? "bg-accent-soft text-primary" : "hover:bg-background"
+                }`}
+              >
+                {department}
+              </li>
+            )) : (
+              <li role="option" aria-disabled="true" className="px-3.5 py-2.5 text-sm text-muted">
+                No encontramos ese departamento.
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
     </Field>
   );
   const textArea = (name: keyof FriFormValues, label: string) => (
@@ -636,7 +768,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                 <FormSectionHeading icon={Contact}>Datos de contacto</FormSectionHeading>
                 {field("company", "Empresa")}
                 {field("position", "Cargo")}
-                {select("department", "Departamento", departments)}
+                {departmentSelect}
                 {field("mobile", "Celular", true, "tel")}
               </section>
             </>
