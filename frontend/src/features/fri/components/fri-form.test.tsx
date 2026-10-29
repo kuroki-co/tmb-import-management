@@ -30,6 +30,7 @@ const fixture: FriFormValues = {
   position: "",
   department: "Arequipa",
   mobile: "999123456",
+  email: "",
   vehicleType: "Automóvil",
   brand: "Toyota",
   model: "Corolla",

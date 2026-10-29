@@ -19,9 +19,11 @@ import { AppointmentBooker } from "@/features/calendar/appointment-booker";
 export function FriDetails({
   id,
   receipt = false,
+  emailStatus,
 }: {
   id: string;
   receipt?: boolean;
+  emailStatus?: "sent" | "failed" | "not_provided" | "not_configured";
 }) {
   const [fri, setFri] = useState<Fri | null>(null);
   const [pdf, setPdf] = useState("");
@@ -213,8 +215,23 @@ export function FriDetails({
               </p>
               <p className="mt-2 text-xs leading-5 text-navy">
                 Cuando la cotización esté lista podrás descargar la proforma
-                desde esta misma página. No se enviará una copia por correo.
+                desde esta misma página.
               </p>
+              {emailStatus === "sent" && (
+                <p role="status" className="mt-3 text-sm font-medium text-navy">
+                  Enviamos una confirmación de tu solicitud al correo que indicaste.
+                </p>
+              )}
+              {(emailStatus === "failed" || emailStatus === "not_configured") && (
+                <p role="status" className="mt-3 text-sm font-medium text-red-700">
+                  Tu solicitud quedó registrada, pero no pudimos enviar el correo de confirmación. Conserva el PDF descargado como constancia.
+                </p>
+              )}
+              {emailStatus === "not_provided" && (
+                <p role="status" className="mt-3 text-sm text-navy">
+                  Puedes descargar el PDF como constancia de tu solicitud.
+                </p>
+              )}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {quoteAvailable ? (
                   <span role="status" className="text-sm font-medium text-navy">

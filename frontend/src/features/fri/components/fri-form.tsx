@@ -248,6 +248,8 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         aria-describedby={describedBy(name)}
         autoComplete={name === "mobile"
           ? "tel-national"
+          : name === "email"
+          ? "email"
           : name === "name" && !corporate
           ? "name"
           : undefined}
@@ -521,7 +523,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       rememberReceipt(receipt.id, receipt.receiptToken);
       setRegistered(true);
       clearDraft();
-      router.push(`/fri/exito/${receipt.id}`);
+      router.push(`/fri/exito/${receipt.id}?email=${receipt.emailStatus}`);
     } catch (e) {
       sendingRef.current = false;
       setError(
@@ -770,6 +772,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                 {field("position", "Cargo")}
                 {departmentSelect}
                 {field("mobile", "Celular", true, "tel")}
+                {field("email", "Correo", false, "email")}
               </section>
             </>
           )}

@@ -57,6 +57,8 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("calendar-status") }).strict(),
   z.object({ action: z.literal("calendar-connect") }).strict(),
   z.object({ action: z.literal("calendar-agenda") }).strict(),
+  z.object({ action: z.literal("email-status") }).strict(),
+  z.object({ action: z.literal("email-test") }).strict(),
   z.object({
     action: z.literal("calendar-slots"),
     day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -321,7 +323,52 @@ export async function handler(req: Request): Promise<Response> {
         p_token: body.receiptToken,
       });
       if (error) throw error;
-      return json({ id: data, receiptToken: body.receiptToken }, 201);
+      let emailStatus: "sent" | "failed" | "not_provided" | "not_configured" =
+        "not_provided";
+      const recipient = validated.data.email?.trim() || "";
+      if (recipient) {
+        const apiKey = Deno.env.get("RESEND_API_KEY");
+        const sender = Deno.env.get("RESEND_FROM_EMAIL")?.trim();
+        if (!apiKey || !sender) {
+          emailStatus = "not_configured";
+        } else {
+          const { data: request, error: requestError } = await admin
+            .from("tmb_fri_requests")
+            .select("code")
+            .eq("id", data)
+            .maybeSingle();
+          if (requestError || !request?.code) {
+            emailStatus = "failed";
+          } else {
+            try {
+              const response = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  "Idempotency-Key": `tmb-fri-confirmation-${data}`,
+                },
+                body: JSON.stringify({
+                  from: sender,
+                  to: [recipient],
+                  subject: `Solicitud FRI recibida · ${request.code}`,
+                  html: `<div style="font-family:Arial,sans-serif;color:#12385b"><h1 style="font-size:20px">Recibimos tu solicitud</h1><p>Tu ficha de requerimiento de importación se registró correctamente.</p><p>Código de solicitud: <strong>${request.code}</strong></p><p>El equipo de TMB revisará la información y preparará una cotización referencial.</p></div>`,
+                  text: `Recibimos tu solicitud FRI. Código de solicitud: ${request.code}. El equipo de TMB revisará la información y preparará una cotización referencial.`,
+                }),
+              });
+              emailStatus = response.ok ? "sent" : "failed";
+              if (!response.ok) await response.text().catch(() => "");
+            } catch {
+              emailStatus = "failed";
+            }
+          }
+        }
+      }
+      return json({
+        id: data,
+        receiptToken: body.receiptToken,
+        emailStatus,
+      }, 201);
     }
     if (body.action === "calendar-slots") {
       await limit(`calendar:slots:${ip}`, 60, 60);
@@ -548,6 +595,52 @@ export async function handler(req: Request): Promise<Response> {
         ]);
         if (result.error) throw result.error;
         return json({ connection, appointments: result.data || [] });
+      }
+      if (body.action === "email-status") {
+        const sender = Deno.env.get("RESEND_FROM_EMAIL")?.trim() || "";
+        return json({
+          configured: Boolean(Deno.env.get("RESEND_API_KEY") && sender),
+          sender: sender || null,
+          testRecipient: verified.user.email || null,
+        });
+      }
+      if (body.action === "email-test") {
+        await limit(`seller:resend-test:${seller.id}`, 3, 3600);
+        const apiKey = Deno.env.get("RESEND_API_KEY");
+        const sender = Deno.env.get("RESEND_FROM_EMAIL")?.trim();
+        const recipient = verified.user.email;
+        if (!apiKey || !sender) {
+          throw new HttpError(503, "Configura RESEND_API_KEY y RESEND_FROM_EMAIL en los secretos de Supabase.");
+        }
+        if (!recipient) {
+          throw new HttpError(400, "La cuenta del vendedor no tiene correo para recibir la prueba.");
+        }
+        let response: Response;
+        try {
+          response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `tmb-resend-test-${seller.id}-${crypto.randomUUID()}`,
+            },
+            body: JSON.stringify({
+              from: sender,
+              to: [recipient],
+              subject: "Prueba de correo · TMB Importaciones",
+              html: "<div style=\"font-family:Arial,sans-serif;color:#12385b\"><h1 style=\"font-size:20px\">Conexión de correo lista</h1><p>Este mensaje confirma que TMB puede enviar correos desde Resend.</p></div>",
+              text: "Conexión de correo lista. Este mensaje confirma que TMB puede enviar correos desde Resend.",
+            }),
+          });
+        } catch {
+          throw new HttpError(502, "No pudimos conectar con Resend. Revisa la conexión e inténtalo de nuevo.");
+        }
+        if (!response.ok) {
+          // Do not return provider payloads, which can contain operational or recipient details.
+          await response.text().catch(() => "");
+          throw new HttpError(502, "Resend rechazó el envío. Revisa la API key y que el remitente use un dominio verificado.");
+        }
+        return json({ success: true, recipient });
       }
       if (body.action === "catalog-admin-list") {
         const search = (body.query || "").replace(/[^\p{L}\p{N}\s&./-]/gu, " ").trim();

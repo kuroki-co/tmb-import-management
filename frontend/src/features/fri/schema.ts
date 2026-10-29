@@ -50,6 +50,10 @@ export const friSchema = z
     mobile: z
       .string()
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
+    email: z.string().trim().max(254, "El correo es demasiado largo").refine(
+      (value) => value === "" || z.email().safeParse(value).success,
+      "Ingresa un correo válido",
+    ),
     vehicleType: z.enum(["", ...vehicleTypes]),
     brand: requiredText(100),
     model: requiredText(100),
@@ -152,6 +156,7 @@ export const defaults: Partial<FriFormValues> = {
   company: "",
   position: "",
   mobile: "",
+  email: "",
   vehicleType: "",
   brand: "",
   model: "",
@@ -180,6 +185,7 @@ export const stepFields: (keyof FriFormValues)[][] = [
     "position",
     "department",
     "mobile",
+    "email",
   ],
   [
     "vehicleType",

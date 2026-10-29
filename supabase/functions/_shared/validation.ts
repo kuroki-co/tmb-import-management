@@ -35,6 +35,10 @@ export const formSchema = z
     mobile: z
       .string()
       .regex(/^9\d{8}$/, "Ingresa un celular peruano de 9 dígitos"),
+    email: z.string().trim().max(254, "El correo es demasiado largo").refine(
+      (value) => value === "" || z.email().safeParse(value).success,
+      "Ingresa un correo válido",
+    ).default(""),
     vehicleType: z.enum(["", "Automóvil", "Camión"]),
     brand: requiredText(100),
     model: requiredText(100),

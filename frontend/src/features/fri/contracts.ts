@@ -62,5 +62,6 @@ export const friRecordSchema = z.object({
 export const receiptSchema = z.object({
   id: z.string(),
   receiptToken: z.string(),
+  emailStatus: z.enum(["sent", "failed", "not_provided", "not_configured"]),
 });
 export type Fri = z.infer<typeof friRecordSchema>;
