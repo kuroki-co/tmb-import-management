@@ -165,13 +165,13 @@ export async function quotationReceiptStatus(id: string, token: string) {
   return result as { available: boolean; updatedAt: string | null };
 }
 
-export async function downloadQuotation(id: string, token: string) {
+export async function downloadQuotation(id: string, token?: string) {
   if (!usesSupabase()) {
     throw new Error("La descarga de cotizaciones requiere el servicio Supabase");
   }
   const result = await callFriFunction(
-    { action: "quotation-pdf", id, token },
-    false,
+    { action: "quotation-pdf", id, ...(token ? { token } : {}) },
+    !token,
     true,
   );
   if (!(result instanceof Blob)) throw new Error("No se pudo descargar la proforma");

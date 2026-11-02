@@ -217,7 +217,7 @@ export function CatalogVehiclePicker({
 
       {(preparingIndex || loading) && <>
         <p role="status" className="sr-only">{preparingIndex ? "Preparando catálogo" : "Buscando vehículos"}</p>
-        {open && <div aria-hidden className="absolute left-0 right-0 top-full z-30 mt-1 space-y-3 rounded-lg border border-border bg-white p-4 shadow-lg">
+        {open && <div aria-hidden className="absolute left-0 right-0 top-full z-30 mt-1 space-y-3 tmb-card p-4 shadow-lg">
           {Array.from({ length: 3 }, (_, index) => <div key={index} className="flex items-center gap-3">
             <Skeleton className="h-9 w-9 shrink-0 rounded-md" />
             <div className="flex-1 space-y-2"><Skeleton className="h-4 w-36 max-w-full" /><Skeleton className="h-3 w-24" /></div>
@@ -227,7 +227,7 @@ export function CatalogVehiclePicker({
       </>}
       {error && <p role="alert" className="mt-2 text-xs text-danger">{error}</p>}
       {open && !preparingIndex && !loading && term.length >= 2 && visibleItems.length === 0 && !isSelected && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-border bg-white p-4 shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 tmb-card p-4 shadow-lg">
           <p className="text-sm font-medium text-navy">
             {error ? "No pudimos consultar el catálogo." : "No encontramos ese vehículo."}
           </p>
@@ -250,7 +250,7 @@ export function CatalogVehiclePicker({
           id="vehicleCatalogOptions"
           role="listbox"
           aria-label="Vehículos disponibles"
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-white shadow-lg"
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 divide-y divide-border overflow-y-auto tmb-card shadow-lg"
         >
           {visibleItems.map((vehicle, index) => (
             <li

@@ -13,7 +13,7 @@ export function StatusBadge({ status }: { status: Fri["status"] }) {
   const { icon: Icon, style } = states[status];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium ${style}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium ${style}`}
     >
       <Icon aria-hidden size={14} />
       {status}

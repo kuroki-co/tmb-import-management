@@ -1,10 +1,10 @@
 import type { HTMLAttributes } from "react";
 
-export function Skeleton({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
+export function Skeleton({ className = "", ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
-    <div
+    <span
       aria-hidden="true"
-      className={`motion-safe:animate-pulse rounded-md bg-[#e6edeb] motion-reduce:animate-none ${className}`}
+      className={`block motion-safe:animate-pulse rounded-md bg-border/70 motion-reduce:animate-none ${className}`}
       {...props}
     />
   );

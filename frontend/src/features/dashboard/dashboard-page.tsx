@@ -27,6 +27,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { DashboardLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { PanelAccess } from "@/features/panel/panel-access";
@@ -119,13 +120,12 @@ function MetricCard({ label, value, detail, icon: Icon, tone = "default", compar
       : "bg-accent-soft text-accent";
   const numericValue = typeof value === "number" ? value.toLocaleString("es-PE") : value;
   return (
-    <article className="relative overflow-hidden rounded-xl border border-border bg-white p-5 shadow-[0_1px_2px_rgba(9,41,67,.03)]">
-      <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-accent/70 via-brand-green/70 to-transparent" />
+    <article className="relative overflow-hidden tmb-card p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-muted">{label}</p>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${toneClasses}`}><Icon size={19} aria-hidden /></span>
+        <p className="min-h-8 text-xs font-medium text-muted sm:min-h-10 sm:text-sm">{label}</p>
+        <span className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:flex ${toneClasses}`}><Icon size={19} aria-hidden /></span>
       </div>
-      <p className="mt-4 text-[2rem] font-semibold leading-none tracking-tight text-navy tabular-nums">{numericValue}</p>
+      <p className="mt-4 text-[1.75rem] font-semibold leading-none tracking-tight text-navy tabular-nums">{numericValue}</p>
       <div className="mt-3 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         <span className="text-muted">{detail}</span>
         {comparison && <span className={`inline-flex items-center gap-0.5 font-medium ${comparison.difference === 0 ? "text-muted" : "text-accent"}`}>
@@ -227,16 +227,10 @@ export function DashboardPage() {
   return (
     <PanelAccess>
       <div className="space-y-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="mb-2 flex items-center gap-2 text-[11px] font-bold tracking-[.15em] text-accent"><span aria-hidden className="h-[2px] w-6 bg-brand-green" />GESTIÓN COMERCIAL</p>
-            <h1 className="text-[2rem] font-semibold leading-tight tracking-[-.035em] text-navy">Hola, equipo TMB</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Aquí tienes el panorama comercial y las solicitudes que conviene atender primero.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-white px-3 text-xs font-medium text-muted">
+        <PageHeader title="Hola, equipo TMB" eyebrow="Gestión comercial" description="El panorama de tus operaciones y las solicitudes que necesitan tu atención." actions={<>
+<label className="flex min-h-11 items-center gap-2 tmb-card px-3 text-xs font-medium text-muted">
               Período
-              <select aria-label="Período del resumen" className="tmb-select min-h-9 bg-transparent pr-6 text-sm font-semibold text-navy" value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value) as PeriodDays)}>
+              <select aria-label="Período del resumen" className="tmb-select min-h-9 bg-transparent pr-6 text-sm font-medium text-navy" value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value) as PeriodDays)}>
                 <option value={7}>7 días</option><option value={30}>30 días</option><option value={90}>90 días</option>
               </select>
             </label>
@@ -244,9 +238,8 @@ export function DashboardPage() {
               {refreshing ? <LoaderCircle size={16} className="animate-spin" aria-hidden /> : <RefreshCw size={16} aria-hidden />}
               {refreshing ? "Actualizando…" : "Actualizar"}
             </Button>
-            <Link href="/panel/solicitudes" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"><ClipboardList size={16} aria-hidden />Abrir solicitudes</Link>
-          </div>
-        </header>
+            <Link href="/panel/solicitudes" className="inline-flex min-h-11 sm:min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"><ClipboardList size={16} aria-hidden />Abrir solicitudes</Link>
+        </>} />
 
         {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-danger"><span>{error}</span><Button variant="secondary" onClick={() => void refresh()} disabled={refreshing}>Reintentar</Button></div>}
 
@@ -254,7 +247,7 @@ export function DashboardPage() {
           <DashboardLoadingSkeleton />
         ) : data ? (
           <>
-            <section aria-label="Indicadores comerciales" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section aria-label="Indicadores comerciales" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               <MetricCard label="Solicitudes nuevas" value={metrics.receivedInPeriod} detail={periodLabel} icon={ClipboardList} comparison={{ difference: receivedDelta, label: receivedDelta === 0 ? "igual al período anterior" : `${Math.abs(receivedDelta)} ${receivedDelta > 0 ? "más" : "menos"} que el período anterior` }} />
               <MetricCard label="Pendientes de revisar" value={metrics.pending} detail="Esperan una primera revisión" icon={Clock3} tone="warning" />
               <MetricCard label="En revisión" value={metrics.reviewing} detail="Solicitudes en evaluación" icon={Search} />
@@ -262,7 +255,7 @@ export function DashboardPage() {
             </section>
 
             <section className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(19rem,1fr)]">
-              <div className="overflow-hidden rounded-xl border border-border bg-white">
+              <div className="overflow-hidden tmb-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
                   <div><h2 className="font-semibold text-navy">Solicitudes por atender</h2><p className="mt-1 text-xs text-muted">Pendientes primero; dentro de cada etapa, las más antiguas.</p></div>
                   <div className="flex items-center gap-2"><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-amber-800">{attentionRequests.length} por atender</span><Link href="/panel/solicitudes" aria-label="Ver todas las solicitudes" className="flex h-9 w-9 items-center justify-center rounded-lg text-primary transition-colors hover:bg-background"><ArrowRight size={17} aria-hidden /></Link></div>
@@ -283,7 +276,7 @@ export function DashboardPage() {
                 )}
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-border bg-white">
+              <div className="overflow-hidden tmb-card">
                 <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4"><div><h2 className="font-semibold text-navy">Próximas citas</h2><p className="mt-1 text-xs text-muted">Reuniones con clientes, en hora de Perú.</p></div><Link href="/panel/agenda" aria-label="Ver agenda" className="flex h-9 w-9 items-center justify-center rounded-lg text-primary transition-colors hover:bg-background"><CalendarDays size={18} aria-hidden /></Link></div>
                 {upcomingAppointments.length ? <ul className="divide-y divide-border">{upcomingAppointments.map((appointment) => <li key={appointment.id} className="flex items-start gap-3 px-5 py-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent"><CalendarDays size={18} aria-hidden /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-navy">{appointment.client_name}</span><span className="mt-1 block truncate text-xs text-muted">{appointment.request_code} · {appointment.vehicle}</span><span className="mt-2 block text-xs font-medium text-accent">{formatAppointment(appointment.starts_at)}</span></span><span className={`mt-0.5 rounded-full px-2 py-1 text-[10px] font-semibold ${appointment.status === "confirmed" ? "bg-success-soft text-success" : "bg-amber-50 text-amber-800"}`}>{appointment.status === "confirmed" ? "Confirmada" : "Pendiente"}</span></li>)}</ul>
                   : <div className="px-5 py-9 text-center"><span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-background text-muted"><CalendarDays size={19} aria-hidden /></span><p className="mt-3 text-sm font-semibold text-navy">{data.calendarState === "disconnected" ? "Agenda sin conectar" : data.calendarState === "unavailable" ? "Agenda no disponible" : "Sin citas próximas"}</p><p className="mt-1 text-xs leading-5 text-muted">{data.calendarState === "disconnected" ? "Conecta Google Calendar para ver las reuniones aquí." : data.calendarState === "unavailable" ? "No pudimos consultar las citas. Puedes revisar la agenda directamente." : "Las próximas reuniones aparecerán aquí."}</p>{data.calendarState !== "connected" && <Link href="/panel/agenda" className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-primary hover:bg-background">Abrir agenda<ArrowRight size={14} aria-hidden /></Link>}</div>}
@@ -291,9 +284,9 @@ export function DashboardPage() {
             </section>
 
             <section className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)]">
-              <div className="rounded-xl border border-border bg-white p-5 md:p-6">
+              <div className="tmb-card p-5 md:p-6">
                 <div className="mb-6 flex items-start justify-between gap-3">
-                  <div><h2 className="font-semibold text-navy">Pipeline comercial</h2><p className="mt-1 text-xs text-muted">Solicitudes abiertas y compras confirmadas.</p></div>
+                  <div><h2 className="font-semibold text-navy">Estado de solicitudes</h2><p className="mt-1 text-xs text-muted">Solicitudes abiertas y compras confirmadas.</p></div>
                   <span className="rounded-full bg-background px-2.5 py-1 text-xs font-semibold tabular-nums text-muted">{requests.length} total</span>
                 </div>
                 <div role="img" aria-label={stages.map((stage) => `${stage.label}: ${stage.count}`).join(", ")} className="h-14 w-full rounded-lg bg-background/70 px-1">
@@ -329,7 +322,7 @@ export function DashboardPage() {
                 <Link href="/panel/solicitudes" className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-primary transition-colors hover:bg-background">Ir a solicitudes<ArrowRight size={15} aria-hidden /></Link>
               </div>
 
-              <div className="rounded-xl border border-border bg-white p-5 md:p-6">
+              <div className="tmb-card p-5 md:p-6">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                   <div><h2 className="font-semibold text-navy">Entrada de solicitudes</h2><p className="mt-1 text-xs text-muted">Tendencia en los {periodLabel}.</p></div>
                   <span className="rounded-lg bg-accent-soft px-3 py-1.5 text-sm font-semibold tabular-nums text-accent">{metrics.receivedInPeriod} FRI</span>
@@ -339,7 +332,7 @@ export function DashboardPage() {
                     <AreaChart data={trend} margin={{ top: 12, right: 10, left: -18, bottom: 0 }}>
                       <defs>
                         <linearGradient id="dashboard-request-fill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#087b82" stopOpacity={0.24} />
+                          <stop offset="0%" stopColor="#087b82" stopOpacity={0.12} />
                           <stop offset="95%" stopColor="#087b82" stopOpacity={0.015} />
                         </linearGradient>
                       </defs>

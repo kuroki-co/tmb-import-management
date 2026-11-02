@@ -141,7 +141,7 @@ export function FriSummary({
       {sections.map(({ title, rows }, index) => (
         <section
           key={title}
-          className="rounded-xl border border-border bg-white p-4 md:p-5"
+          className="tmb-card p-4 md:p-5"
         >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">

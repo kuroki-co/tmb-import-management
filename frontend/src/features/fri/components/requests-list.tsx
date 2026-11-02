@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { listFri, type Fri } from "../api";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -76,19 +77,9 @@ export function RequestsList() {
   );
   return (
     <>
-      <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="mb-2 flex items-center gap-2 text-[11px] font-bold tracking-[.15em] text-accent">
-            <span aria-hidden="true" className="h-[2px] w-6 bg-brand-green" />
-            GESTIÓN COMERCIAL
-          </p>
-          <h1 className="text-[2rem] font-semibold leading-tight tracking-[-.035em] text-navy">Solicitudes FRI</h1>
-          <p className="mt-2 max-w-xl text-[14px] leading-6 text-muted">
-            Prioriza los requerimientos pendientes y continúa con su cotización.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
+      <div className="mb-6">
+        <PageHeader title="Solicitudes FRI" eyebrow="Gestión comercial" description="Prioriza los requerimientos pendientes y continúa con su cotización." actions={<>
+<Button
             variant="secondary"
             disabled={loading}
             onClick={() => {
@@ -109,14 +100,14 @@ export function RequestsList() {
           <Link
             href="/fri"
             target="_blank"
-            className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="flex min-h-11 sm:min-h-10 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <ArrowUpRight size={16} />
             Abrir formulario FRI
           </Link>
-        </div>
+        </>} />
       </div>
-      <div className="mb-4 overflow-hidden rounded-lg border border-border bg-white">
+      <div className="mb-4 overflow-hidden tmb-card">
         <div aria-label="Filtrar por estado" className="hidden flex-wrap gap-2 border-b border-border px-4 py-2.5 md:flex">
           {["Todas", "Pendiente a revisar", "En revisión", "Cotizado"].map((label) => {
             const value = label === "Todas" ? "" : label;
@@ -132,10 +123,10 @@ export function RequestsList() {
                   setPage(1);
                   setStatus(value);
                 }}
-                className={`flex min-h-11 items-center gap-2.5 rounded-md px-4 text-sm transition-colors ${status === value ? "bg-accent font-semibold text-white" : "text-muted hover:bg-background hover:text-foreground"}`}
+                className={`flex min-h-11 items-center gap-2.5 rounded-md px-4 text-sm transition-colors ${status === value ? "bg-accent-soft font-semibold text-primary" : "text-muted hover:bg-background hover:text-foreground"}`}
               >
                 {value || "Todas"}
-                <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${status === value ? "bg-white/20 text-white" : "bg-background"}`}>{updatedAt ? count : "—"}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${status === value ? "bg-white text-primary" : "bg-background"}`}>{updatedAt ? count : "—"}</span>
               </button>
             );
           })}
@@ -202,7 +193,7 @@ export function RequestsList() {
           </button>
         </div>
       </div>
-      <section className="overflow-hidden rounded-lg border border-border bg-white">
+      <section className="overflow-hidden tmb-card">
         {error && updatedAt && (
           <div
             role="alert"
@@ -310,8 +301,8 @@ export function RequestsList() {
               ))}
             </div>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border bg-[#eef3f2] text-[#526b73]">
+              <table className="tmb-data-table w-full text-left text-sm">
+                <thead className="border-b border-border bg-background text-muted">
                   <tr>
                     {[
                       "Cliente",
@@ -322,7 +313,7 @@ export function RequestsList() {
                     ].map((h, i) => (
                       <th
                         key={i}
-                        className="whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]"
+                        className="whitespace-nowrap px-5 py-4 text-xs font-medium"
                       >
                         {h}
                       </th>

@@ -42,7 +42,7 @@ export function LoginForm() {
         error={errors.email?.message}
       >
         <div className="relative">
-          <Mail size={17} className="absolute left-3 top-3.5 text-muted" />
+          <Mail size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             id="email"
             autoComplete="username"
@@ -63,7 +63,7 @@ export function LoginForm() {
         <div className="relative">
           <LockKeyhole
             size={17}
-            className="absolute left-3 top-3.5 text-muted"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
           />
           <input
             id="password"
@@ -78,7 +78,7 @@ export function LoginForm() {
           <button
             type="button"
             aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-            className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:bg-background"
+            className="absolute right-0.5 top-1/2 -translate-y-1/2 flex h-9 w-10 items-center justify-center rounded-lg text-muted hover:bg-background"
             onClick={() => setVisible((v) => !v)}
           >
             {visible ? <EyeOff size={17} /> : <Eye size={17} />}

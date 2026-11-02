@@ -72,8 +72,8 @@ export function QuotationSettingsForm() {
   return (
     <>
       <div className="mb-7">
-        <p className="mb-2 text-xs font-semibold text-primary">COTIZACIONES</p>
-        <h1 className="text-2xl font-semibold">Parámetros base</h1>
+        <p className="mb-2 tmb-eyebrow">COTIZACIONES</p>
+        <h1 className="tmb-page-title">Parámetros base</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
           Define el tipo de cambio, tasas y gastos que se usarán como valores iniciales. Cada cotización guarda su propia copia y permite excepciones sin cambiar estos parámetros.
         </p>
@@ -89,7 +89,7 @@ export function QuotationSettingsForm() {
         <SettingsLoadingSkeleton withHeading={false} />
       ) : settings ? (
         <form onSubmit={submit} className="space-y-5">
-          <section className="rounded-xl border border-border bg-white p-5 md:p-6">
+          <section className="tmb-card p-5 md:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-primary"><Settings2 size={19} /></div>
               <div><h2 className="font-semibold">Importación marítima y tributos</h2><p className="mt-1 text-xs text-muted">Tasas base aplicadas a FOB, flete y CIF.</p></div>
@@ -109,7 +109,7 @@ export function QuotationSettingsForm() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-border bg-white p-5 md:p-6">
+          <section className="tmb-card p-5 md:p-6">
             <div className="mb-5"><h2 className="font-semibold">Gastos locales</h2><p className="mt-1 text-xs text-muted">Los valores en cero se mostrarán como “—” en el desglose.</p></div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {localCostKeys.map((key) => (
@@ -123,7 +123,7 @@ export function QuotationSettingsForm() {
             </div>
           </section>
 
-          <div className="sticky bottom-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-white/95 p-3 shadow-sm backdrop-blur">
+          <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 tmb-card bg-surface/95 p-3 shadow-sm backdrop-blur">
             <p role={saved ? "status" : undefined} className="flex items-center gap-2 text-sm text-muted">
               {saved ? <><Check size={16} className="text-success" />Parámetros guardados.</> : "Los cambios afectan cotizaciones nuevas; las ya guardadas conservan sus valores."}
             </p>

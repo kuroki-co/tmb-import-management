@@ -82,7 +82,7 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("quotation-pdf"),
     id: z.uuid(),
-    token: z.string().regex(/^[a-f0-9]{64}$/),
+    token: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   }).strict(),
   z.object({
     action: z.literal("quotation-save"),
@@ -491,7 +491,7 @@ export async function handler(req: Request): Promise<Response> {
       body.action === "receipt" ||
       (body.action === "pdf" && token) ||
       body.action === "quotation-receipt" ||
-      body.action === "quotation-pdf"
+      (body.action === "quotation-pdf" && token)
     ) {
       await limit(`receipt:${ip}`, 60, 60);
       const { data, error } = await admin.rpc("tmb_read_receipt", {
@@ -710,6 +710,35 @@ export async function handler(req: Request): Promise<Response> {
         });
         if (error) throw error;
         return json(settings.data);
+      }
+      if (body.action === "quotation-pdf") {
+        const [requestResult, quotationResult] = await Promise.all([
+          user.from("tmb_fri_requests").select("id,created_at,code,status,data")
+            .eq("id", body.id).maybeSingle(),
+          admin.from("tmb_quotations").select("input,settings_snapshot,calculation,updated_at")
+            .eq("request_id", body.id).maybeSingle(),
+        ]);
+        if (requestResult.error) throw requestResult.error;
+        if (quotationResult.error) throw quotationResult.error;
+        if (!requestResult.data) throw new HttpError(404, "Solicitud no encontrada");
+        const quotation = quotationResult.data;
+        if (!quotation) throw new HttpError(404, "La cotización todavía no está disponible");
+        const record = map(requestResult.data);
+        const { QuotationPdfService } = await import("../_shared/quotation-pdf.ts");
+        const pdf = await new QuotationPdfService().generate(record, {
+          input: quotation.input,
+          settings: quotation.settings_snapshot,
+          calculation: quotation.calculation,
+          updatedAt: quotation.updated_at,
+        });
+        const safeCode = record.code.replace(/[^a-zA-Z0-9-]/g, "-");
+        return new Response(new Uint8Array(pdf), {
+          headers: {
+            ...headers,
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="PROFORMA-${safeCode}.pdf"`,
+          },
+        });
       }
       if (body.action === "quotation-get") {
         const { data, error } = await admin.from("tmb_quotations")

@@ -51,11 +51,11 @@ export function PanelBreadcrumbs({ pathname }: { pathname: string }) {
   const items = getItems(pathname);
 
   return (
-    <nav aria-label="Ruta de navegación" className="min-w-0">
+    <nav aria-label="Ruta de navegación" className="min-w-0 flex-1">
       <ol className="flex min-w-0 items-center gap-1.5 text-xs sm:gap-2 sm:text-sm">
         {items.map((item, index) => {
           const current = index === items.length - 1;
-          const compactParent = !current && index < items.length - 2;
+          const compactParent = !current && index < items.length - 1;
 
           return (
             <li
@@ -63,7 +63,7 @@ export function PanelBreadcrumbs({ pathname }: { pathname: string }) {
               className={`flex min-w-0 items-center gap-1.5 sm:gap-2 ${compactParent ? "hidden sm:flex" : ""}`}
             >
               {index > 0 && (
-                <ChevronRight size={14} aria-hidden className="shrink-0 text-muted/60" />
+                <ChevronRight size={14} aria-hidden className={`shrink-0 text-muted/60 ${current ? "hidden sm:block" : ""}`} />
               )}
               {item.href && !current ? (
                 <Link

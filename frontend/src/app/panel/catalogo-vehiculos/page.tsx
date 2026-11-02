@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, CarFront, RefreshCw, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -105,19 +106,10 @@ export default function VehicleCatalogPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Gestión comercial</p>
-          <h1 className="mt-2 text-2xl font-semibold text-navy">Catálogo de vehículos</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-            Los vehículos válidos extraídos del sitio se publican automáticamente en el FRI. Si una página no se puede leer, verás el error aquí y se conservarán los datos anteriores. Los precios del sitio son referenciales.
-          </p>
-        </div>
-        <Button onClick={handleSync} disabled={syncing}>
+      <PageHeader title="Catálogo de vehículos" eyebrow="Gestión comercial" description="Consulta los vehículos y precios de referencia disponibles para las solicitudes de tus clientes." actions={<><Button onClick={handleSync} disabled={syncing}>
           <RefreshCw size={16} className={syncing ? "animate-spin" : ""} aria-hidden />
-          {syncing ? "Extrayendo…" : "Sincronizar catálogo web"}
-        </Button>
-      </header>
+          {syncing ? "Extrayendo…" : "Actualizar catálogo"}
+        </Button></>} />
 
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
       {notice && <p role="status" className="rounded-lg border border-accent-border bg-accent-soft p-3 text-sm text-navy">{notice}</p>}
@@ -125,7 +117,7 @@ export default function VehicleCatalogPage() {
       {status?.pendingPages ? <p className="text-xs text-muted">Quedan {status.pendingPages} páginas en cola. La extracción avanza en lotes para no sobrecargar el sitio.</p> : null}
       {status?.lastError && <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">No se pudo extraer una parte del catálogo: {status.lastError}. Se conservan los vehículos válidos y puedes volver a intentar la sincronización.</p>}
 
-      <section aria-label="Filtros del catálogo" className="rounded-xl border border-border bg-white p-4 md:p-5">
+      <section aria-label="Filtros del catálogo" className="tmb-card p-4 md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-sm font-semibold text-navy">Filtrar vehículos</h2>
@@ -137,7 +129,7 @@ export default function VehicleCatalogPage() {
               <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input className={`${inputClass} pl-10`} value={query} onChange={(event) => { setPage(1); setQuery(event.target.value); }} placeholder="Marca, modelo o versión" />
             </label>
-            <select className={`${inputClass} sm:w-52`} value={source} onChange={(event) => { setPage(1); setSource(event.target.value as SourceFilter); }} aria-label="Filtrar por origen">
+            <select className={`${inputClass} tmb-select sm:w-52`} value={source} onChange={(event) => { setPage(1); setSource(event.target.value as SourceFilter); }} aria-label="Filtrar por origen">
               <option value="all">Todos los orígenes</option>
               <option value="supplier_excel">Excel proveedor · FOB</option>
               <option value="tmb_web">Sitio web · referencial</option>
@@ -146,17 +138,17 @@ export default function VehicleCatalogPage() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-border bg-white">
+      <section className="overflow-hidden tmb-card">
         <div className="overflow-x-auto">
           {loading && <p role="status" className="sr-only">Cargando catálogo de vehículos</p>}
-          <table className="w-full min-w-[850px] text-left text-sm">
-            <thead className="bg-[#eef3f2] text-[#526b73]">
+          <table className="tmb-data-table w-full min-w-[850px] text-left text-sm">
+            <thead className="bg-background text-muted">
               <tr>
-                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Vehículo</th>
-                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Origen</th>
-                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Precio registrado</th>
-                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Estado</th>
-                <th scope="col" className="px-5 py-4 text-right text-[11px] font-semibold uppercase tracking-[.06em]">Acción</th>
+                <th scope="col" className="px-5 py-4 text-xs font-medium">Vehículo</th>
+                <th scope="col" className="px-5 py-4 text-xs font-medium">Origen</th>
+                <th scope="col" className="px-5 py-4 text-xs font-medium">Precio registrado</th>
+                <th scope="col" className="px-5 py-4 text-xs font-medium">Estado</th>
+                <th scope="col" className="px-5 py-4 text-right text-xs font-medium">Acción</th>
               </tr>
             </thead>
             <tbody aria-busy={loading} className="divide-y divide-border">
@@ -170,8 +162,8 @@ export default function VehicleCatalogPage() {
                       <span><span className="block font-semibold text-navy">{catalogVehicleName(item.brand, item.model)}</span><span className="mt-1 block text-xs text-muted">{[item.year, item.variant].filter(Boolean).join(" · ") || "Sin versión indicada"}</span></span>
                     </div>
                   </td>
-                  <td className="px-5 py-4 text-muted">{item.source === "supplier_excel" ? "Excel proveedor" : "Sitio web TMB"}</td>
-                  <td className="px-5 py-4"><span className="font-medium">{money(item)}</span><span className="mt-1 block text-xs text-muted">{item.priceLabel || (item.source === "tmb_web" ? "Precio referencial" : "FOB (USD)")}</span></td>
+                  <td className="whitespace-nowrap px-5 py-4 text-muted">{item.source === "supplier_excel" ? "Excel proveedor" : "Sitio web TMB"}</td>
+                  <td className="px-5 py-4"><span className="whitespace-nowrap font-medium tabular-nums">{money(item)}</span><span className="mt-1 block text-xs text-muted">{item.priceLabel || (item.source === "tmb_web" ? "Precio referencial" : "FOB (USD)")}</span></td>
                   <td className="px-5 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${item.isActive ? item.isPublished ? "bg-green-50 text-green-800" : "bg-gray-100 text-gray-600" : "bg-gray-100 text-gray-600"}`}>{!item.isActive ? "Inactivo" : item.isPublished ? "Publicado" : "Oculto"}</span></td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex justify-end gap-2">

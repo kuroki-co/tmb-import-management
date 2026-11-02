@@ -10,7 +10,7 @@ export function PanelAccess({ children }: { children: ReactNode }) {
   return (
     <section
       aria-label="Acceso al panel"
-      className="rounded-xl border border-border bg-white p-8 text-center"
+      className="tmb-card p-8 text-center"
     >
       <p role={error ? "alert" : "status"} className="text-sm text-muted">
         {error || "Verificando tu sesión…"}

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, FileText, Mail, RotateCcw, Save } from "lucide-react";
+import { Check, ChevronDown, Download, FileText, Mail, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import { QuotationLoadingSkeleton } from "@/components/ui/loading-skeletons";
-import { loadFri, type Fri } from "@/features/fri/api";
+import { downloadQuotation, loadFri, type Fri } from "@/features/fri/api";
 import { calculateQuotation } from "../calculations";
 import { loadQuotation, loadQuotationSettings, saveQuotation, sendQuotationEmail, type Quotation } from "../api";
 import {
@@ -34,6 +34,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
   const [emailNotice, setEmailNotice] = useState("");
   const [saved, setSaved] = useState(false);
@@ -135,6 +136,27 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
     }
   }
 
+  async function downloadProforma() {
+    if (!fri || !quote || !saved || downloading) return;
+    setDownloading(true);
+    setError("");
+    try {
+      const file = await downloadQuotation(requestId);
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `PROFORMA-${fri.code}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo descargar la proforma.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   async function sendByEmail() {
     if (!fri || !quote || !saved || !fri.data.email) return;
     setSendingEmail(true);
@@ -162,10 +184,10 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-danger">{error || "No encontramos la solicitud o la configuración de cotización."}</div>
       ) : (
         <>
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border bg-white p-5 md:p-6">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">Cotización comercial <span className="px-1 text-muted">/</span> {fri.code}</p>
-              <h1 className="text-2xl font-semibold">{quote ? "Editar cotización" : "Preparar cotización"}</h1>
+              <p className="mb-2 tmb-eyebrow">Cotización comercial <span className="px-1 text-muted">/</span> {fri.code}</p>
+              <h1 className="tmb-page-title">{quote ? "Editar cotización" : "Preparar cotización"}</h1>
               <p className="mt-2 text-sm text-muted">Completa los costos confirmados con la proveedora. El sistema calcula los demás conceptos con los parámetros vigentes.</p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-lg bg-background px-3 py-2 font-medium text-foreground">{fri.data.name}</span>
@@ -173,14 +195,14 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                 <span className="rounded-lg bg-background px-3 py-2 font-medium text-foreground">{fri.data.quantity} unidad(es)</span>
               </div>
             </div>
-            <Link href={`/panel/solicitudes/${fri.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold hover:bg-background"><FileText size={16} />Ver solicitud FRI</Link>
+            <Link href={`/panel/solicitudes/${fri.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 tmb-card px-4 text-sm font-semibold hover:bg-background"><FileText size={16} />Ver solicitud FRI</Link>
           </div>
 
           {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
 
           <form onSubmit={submit} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
             <div className="space-y-5">
-              <section className="rounded-xl border border-border bg-white p-5 md:p-6">
+              <section className="tmb-card p-5 md:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="font-semibold">Costos de importación</h2>
@@ -194,7 +216,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                 </div>
               </section>
 
-              <details className="group rounded-xl border border-border bg-white">
+              <details className="group tmb-card">
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 marker:hidden">
                   <span><span className="text-sm font-semibold">Ajustes excepcionales</span><span className="ml-2 text-xs font-medium text-muted">Opcional · solo esta cotización</span></span>
                   <ChevronDown size={17} className="shrink-0 text-muted transition-transform group-open:rotate-180" />
@@ -219,7 +241,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
               </details>
             </div>
 
-            <aside className="rounded-2xl border border-border bg-white p-5 xl:sticky xl:top-5 xl:p-6">
+            <aside className="tmb-card p-5 xl:sticky xl:top-24 xl:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">Resumen de cotización</h2>
@@ -228,12 +250,12 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                 <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted">USD</span>
               </div>
               {preview && hasRequiredAmounts ? <div className="mt-5">
-                <div className="rounded-2xl bg-primary px-5 py-5 text-white">
+                <div className="rounded-lg bg-primary px-5 py-5 text-white">
                   <p className="text-xs font-medium text-white/75">TOTAL ESTIMADO</p>
                   <p className="mt-2 text-3xl font-semibold tabular-nums">{usd(preview.totalUsd)}</p>
                   <p className="mt-2 text-xs leading-5 text-white/75">Cálculo basado en los parámetros de cotización vigentes.</p>
                 </div>
-                <div className="mt-4 divide-y divide-border rounded-xl border border-border px-3.5">
+                <div className="mt-4 divide-y divide-border rounded-lg border border-border px-3.5">
                   {[
                     { label: "FOB", amount: preview.fobUsd },
                     { label: "Flete internacional", amount: preview.freightUsd },
@@ -262,7 +284,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                     </div>
                   ))}
                 </div>
-                <details className="group mt-3 rounded-xl border border-border px-3.5 py-3">
+                <details className="group mt-3 rounded-lg border border-border px-3.5 py-3">
                   <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium marker:hidden">
                     <span>Ver desglose del cálculo</span>
                     <ChevronDown size={15} className="shrink-0 text-muted transition-transform group-open:rotate-180" />
@@ -287,7 +309,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                       <Row label="IGV de gastos" value={preview.localIgvUsd} />
                       <Row label="Subtotal gastos" value={preview.localSubtotalUsd} strong />
                     </BreakdownGroup>
-                    <section className="rounded-xl border border-border px-3.5 py-3">
+                    <section className="rounded-lg border border-border px-3.5 py-3">
                       <h3 className="text-sm font-medium">Referencia en soles</h3>
                       <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
                         <Row label="Derechos de aduana" customValue={pen(preview.customsDutiesPen)} />
@@ -309,6 +331,10 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                 {emailNotice && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-xs text-green-900">{emailNotice}</p>}
                 {quote && !saved && <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">Tienes cambios sin guardar. Guarda la cotización para conservarlos y habilitar el envío.</p>}
                 <Button className="w-full" type="submit" disabled={saving || !hasRequiredAmounts}><Save size={16} />{saving ? "Guardando cotización…" : quote ? "Guardar cambios" : "Guardar cotización"}</Button>
+                <Button className="mt-2 w-full" type="button" variant="secondary" onClick={() => void downloadProforma()} disabled={!quote || !saved || saving || downloading}>
+                  <Download size={16} />{downloading ? "Preparando proforma…" : "Descargar proforma"}
+                </Button>
+                {!saved && <p className="mt-2 text-center text-[11px] leading-5 text-muted">Guarda la cotización para descargar la proforma con los últimos cambios.</p>}
                 <Button className="mt-2 w-full" type="button" variant="secondary" onClick={() => void sendByEmail()} disabled={!quote || !saved || !fri.data.email || saving || sendingEmail}>
                   <Mail size={16} />{sendingEmail ? "Enviando proforma…" : "Enviar proforma PDF"}
                 </Button>
@@ -325,7 +351,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
 
 function BreakdownGroup({ title, total, children }: { title: string; total: number; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-border px-3.5 py-3">
+    <section className="rounded-lg border border-border px-3.5 py-3">
       <div className="flex items-center justify-between gap-3 text-sm font-medium">
         <h3>{title}</h3>
         <span className="shrink-0 tabular-nums text-muted">{usd(total)}</span>

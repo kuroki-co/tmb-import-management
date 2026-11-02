@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,10 @@ function formatSlot(value: string) {
 }
 
 export function AppointmentBooker({ requestId }: { requestId: string }) {
-  const minDate = useMemo(() => limaDate(new Date()), []);
-  const maxDate = useMemo(() => limaDate(new Date(Date.now() + 60 * 86400000)), []);
+  const [{ minDate, maxDate }] = useState(() => {
+    const now = new Date();
+    return { minDate: limaDate(now), maxDate: limaDate(new Date(now.getTime() + 60 * 86400000)) };
+  });
   const [day, setDay] = useState(minDate);
   const [refreshKey, setRefreshKey] = useState(0);
   const [slots, setSlots] = useState<string[]>([]);
@@ -34,9 +36,6 @@ export function AppointmentBooker({ requestId }: { requestId: string }) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
-    setSelected("");
     getCalendarSlots(day)
       .then((result) => {
         if (!active) return;
@@ -62,6 +61,8 @@ export function AppointmentBooker({ requestId }: { requestId: string }) {
       setSelected("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo reservar la cita.");
+      setLoading(true);
+      setSelected("");
       setRefreshKey((value) => value + 1);
     } finally {
       setBooking(false);
@@ -87,7 +88,7 @@ export function AppointmentBooker({ requestId }: { requestId: string }) {
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(180px,240px)_1fr]">
           <label className="text-sm font-medium text-navy">Fecha
-            <input type="date" min={minDate} max={maxDate} value={day} onChange={(event) => setDay(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border border-border bg-white px-3 text-sm" />
+            <input type="date" min={minDate} max={maxDate} value={day} onChange={(event) => { setLoading(true); setError(""); setSelected(""); setDay(event.target.value); }} className="mt-2 min-h-11 w-full rounded-lg border border-border bg-surface px-3 text-base sm:text-sm" />
             <span className="mt-1 block text-xs font-normal text-muted">Lunes a viernes, 9:00 a. m. a 5:00 p. m.</span>
           </label>
           <div>

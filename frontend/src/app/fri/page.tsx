@@ -10,10 +10,10 @@ export default function FriPage() {
         </span>
       </header>
       <div className="mb-7">
-        <p className="mb-2 text-xs font-semibold tracking-wide text-primary">
+        <p className="mb-2 tmb-eyebrow">
           TU REQUERIMIENTO DE IMPORTACIÓN
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="tmb-page-title">
           Cuéntanos qué deseas importar
         </h1>
         <p className="mt-2 text-sm text-muted">

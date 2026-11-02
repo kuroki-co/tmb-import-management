@@ -413,7 +413,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             id="department-options"
             role="listbox"
             aria-label="Departamentos del Perú"
-            className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg"
+            className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto tmb-card py-1 shadow-lg"
           >
             {matchingDepartments.length > 0 ? matchingDepartments.map((department, index) => (
               <li
@@ -431,7 +431,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                 {department}
               </li>
             )) : (
-              <li role="option" aria-disabled="true" className="px-3.5 py-2.5 text-sm text-muted">
+              <li role="option" aria-selected={false} aria-disabled="true" className="px-3.5 py-2.5 text-sm text-muted">
                 No encontramos ese departamento.
               </li>
             )}
@@ -565,7 +565,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             }
           })(event);
         }}
-        className="w-full min-w-0 rounded-xl border border-border bg-white p-5 md:p-8"
+        className="w-full min-w-0 tmb-card p-5 md:p-8"
       >
         {preview && (
           <p className="mb-6 rounded-lg bg-accent-soft p-3 text-sm text-primary">
@@ -610,7 +610,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             aria-label="Progreso del formulario"
             value={step + 1}
             max={4}
-            className="h-2 w-full overflow-hidden rounded-full accent-accent"
+            className="h-1.5 w-full overflow-hidden rounded-full accent-accent"
           />
         </div>
         <ol className="mb-9 hidden grid-cols-4 gap-4 md:grid" aria-label="Pasos del formulario">
@@ -618,7 +618,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             <li
               key={label}
               aria-current={step === i ? "step" : undefined}
-              className={`border-t-3 pt-3 ${
+              className={`border-t-2 pt-4 ${
                 i <= step
                   ? "border-accent text-primary"
                   : "border-border text-muted"
@@ -635,7 +635,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           ))}
         </ol>
         <div className="mb-6">
-          <p className="mb-2 hidden text-xs font-bold tracking-[.12em] text-muted md:block">
+          <p className="mb-2 hidden text-[10px] font-semibold tracking-[.16em] text-muted md:block">
             PASO {step + 1} DE 4
           </p>
           <h2
@@ -1033,7 +1033,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
             )}
         </div>
       </form>
-      <aside className="hidden h-fit min-w-0 rounded-xl border border-border bg-white p-5 xl:block">
+      <aside className="hidden h-fit min-w-0 tmb-card p-5 xl:block">
         <span className="rounded bg-accent-soft px-2 py-1 text-[10px] font-bold tracking-wider text-primary">
           FRI DIGITAL
         </span>
@@ -1081,7 +1081,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
         ref={resetDialog}
         aria-labelledby="reset-title"
         aria-describedby="reset-description"
-        className="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl border border-border bg-white p-6 text-foreground shadow-xl"
+        className="m-auto w-[calc(100%_-_2rem)] max-w-md tmb-card p-6 text-foreground shadow-xl"
       >
         <h2 id="reset-title" className="text-lg font-semibold">
           ¿Empezar una nueva solicitud?

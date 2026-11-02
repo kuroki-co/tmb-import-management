@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { LoaderCircle, Mail, RefreshCw, Send, ShieldCheck } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PanelAccess } from "@/features/panel/panel-access";
@@ -24,7 +25,14 @@ export default function EmailSettingsPage() {
       setLoading(false);
     }
   }
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    let active = true;
+    getEmailStatus()
+      .then((result) => { if (active) setStatus(result); })
+      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "No se pudo consultar la configuración de correo."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   async function testEmail() {
     setSending(true);
@@ -41,28 +49,21 @@ export default function EmailSettingsPage() {
   }
 
   return <PanelAccess>
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Configuración</p>
-          <h1 className="mt-2 text-2xl font-semibold text-navy">Correo y notificaciones</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Consulta el estado de Resend y envía un mensaje de prueba a tu cuenta de vendedor. La API key permanece en el servidor.</p>
-        </div>
-        <Button variant="secondary" onClick={() => void refresh()} disabled={loading}>
+    <div className="space-y-6">
+      <PageHeader title="Correo y notificaciones" eyebrow="Configuración" description="Comprueba el servicio de correo y el remitente de las notificaciones de tus clientes." actions={<><Button variant="secondary" onClick={() => void refresh()} disabled={loading}>
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />Actualizar estado
-        </Button>
-      </header>
+        </Button></>} />
 
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
       {notice && <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">{notice}</p>}
 
-      <section className="rounded-xl border border-border bg-white p-5 md:p-6">
+      <section className="tmb-card p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary"><Mail size={20} aria-hidden /></span>
             <div>
               <h2 className="font-semibold text-navy">Conexión con Resend</h2>
-              <p className="mt-1 text-sm text-muted">{loading ? <Skeleton className="h-4 w-72 max-w-[65vw]" /> : status?.configured ? "Las credenciales y el remitente están configurados." : "Falta configurar la API key y el remitente en Supabase."}</p>
+              <p className="mt-1 text-sm text-muted">{loading ? <Skeleton className="h-4 w-72 max-w-[65vw]" /> : status?.configured ? "Las credenciales y el remitente están configurados." : "El servicio necesita configurar las credenciales y el remitente."}</p>
               {status?.sender && <p className="mt-2 text-sm"><span className="text-muted">Remitente:</span> <span className="font-medium text-navy">{status.sender}</span></p>}
             </div>
           </div>
@@ -78,7 +79,7 @@ export default function EmailSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-white p-5 md:p-6">
+      <section className="tmb-card p-5 md:p-6">
         <div className="flex items-start gap-3">
           <ShieldCheck size={20} className="mt-0.5 shrink-0 text-primary" aria-hidden />
           <div>

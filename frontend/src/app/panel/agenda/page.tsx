@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, ExternalLink, RefreshCw } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PanelAccess } from "@/features/panel/panel-access";
@@ -17,7 +18,8 @@ export default function AgendaPage() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const notice = search.get("calendar") === "connected" ? "Google Calendar quedó conectado. Ya puedes recibir citas desde el FRI." : "";
+  const displayedError = error || search.get("calendar_error") || "";
   const refresh = useCallback(async () => {
     const result = await getCalendarAgenda();
     setData(result);
@@ -30,12 +32,6 @@ export default function AgendaPage() {
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, []);
-  useEffect(() => {
-    if (search.get("calendar") === "connected") setNotice("Google Calendar quedó conectado. Ya puedes recibir citas desde el FRI.");
-    const issue = search.get("calendar_error");
-    if (issue) setError(issue);
-  }, [search]);
-
   async function connect() {
     setConnecting(true);
     setError("");
@@ -49,26 +45,17 @@ export default function AgendaPage() {
 
   return <PanelAccess>
     <div className="space-y-6">
-      <header className="flex w-full min-w-0 flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[.14em] text-muted">Gestión comercial</p>
-          <h1 className="mt-2 text-2xl font-semibold text-navy">Agenda</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Consulta las citas que los clientes agendan al enviar su FRI. La disponibilidad se sincroniza con Google Calendar.</p>
-        </div>
-        <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
-          <Button className="flex-1 sm:flex-none" variant="secondary" onClick={() => { setLoading(true); refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo actualizar la agenda.")).finally(() => setLoading(false)); }} disabled={loading}>
+      <PageHeader title="Agenda" eyebrow="Gestión comercial" description="Consulta las citas de tus clientes y la disponibilidad de tu equipo en Google Calendar." actions={<><Button className="flex-1 sm:flex-none" variant="secondary" onClick={() => { setLoading(true); refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo actualizar la agenda.")).finally(() => setLoading(false)); }} disabled={loading}>
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />Actualizar
           </Button>
           <Button className="flex-1 whitespace-nowrap sm:flex-none" onClick={() => void connect()} disabled={connecting}>
             <ExternalLink size={16} aria-hidden />{connecting ? "Conectando…" : data?.connection ? "Reconectar Google Calendar" : "Conectar Google Calendar"}
-          </Button>
-        </div>
-      </header>
+          </Button></>} />
 
-      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
+      {displayedError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{displayedError}</p>}
       {notice && <p role="status" className="rounded-lg border border-accent-border bg-accent-soft p-3 text-sm text-navy">{notice}</p>}
 
-      <section className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-white p-5">
+      <section className="flex flex-wrap items-center gap-4 tmb-card p-5">
         <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-primary"><CalendarDays size={22} aria-hidden /></span>
         <div>
           <p className="text-sm font-semibold text-navy">{loading && !data ? <Skeleton className="h-4 w-48" /> : data?.connection ? "Calendario conectado" : "Conecta la agenda de TMB"}</p>
@@ -77,7 +64,7 @@ export default function AgendaPage() {
         {loading && !data ? <Skeleton className="ml-auto h-7 w-32" /> : !data?.connection && <span className="ml-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">Pendiente de conexión</span>}
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-border bg-white">
+      <section className="overflow-hidden tmb-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
           <div><h2 className="font-semibold text-navy">Citas agendadas</h2><p className="mt-1 text-xs text-muted">La hora se muestra en America/Lima</p></div>
           <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted">{data?.appointments.length ?? 0} citas</span>

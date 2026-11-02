@@ -133,14 +133,14 @@ export function FriDetails({
   };
   const body = (
     <>
-      <div className="mb-6 flex flex-col justify-between gap-4 rounded-2xl border border-border bg-white p-5 md:flex-row md:items-center md:p-6">
+      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div className="min-w-0">
           {fri && (
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+            <p className="mb-2 tmb-eyebrow uppercase">
               Solicitud FRI · {fri.code}
             </p>
           )}
-          <h1 className="text-2xl font-semibold">
+          <h1 className="tmb-page-title">
             {receipt && fri
               ? "¡Solicitud enviada correctamente!"
               : receipt

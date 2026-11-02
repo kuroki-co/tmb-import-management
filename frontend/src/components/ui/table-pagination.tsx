@@ -37,7 +37,7 @@ export function TablePagination({
           Filas por página
           <select
             aria-label={`Filas por página en ${label}`}
-            className="tmb-select min-h-10 rounded-lg border border-border bg-white px-3 text-xs text-foreground"
+            className="tmb-select min-h-10 tmb-card px-3 text-xs text-foreground"
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
           >

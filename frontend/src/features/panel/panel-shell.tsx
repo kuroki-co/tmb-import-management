@@ -110,36 +110,36 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           id="panel-navigation"
           ref={menuRef}
           aria-label="Menú del panel"
-          className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-[#18384b] bg-[#092943] text-white transition-transform motion-reduce:transition-none lg:visible lg:translate-x-0 ${open ? "visible translate-x-0" : "invisible -translate-x-full"}`}
+          className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-border bg-surface text-foreground transition-transform motion-reduce:transition-none lg:visible lg:translate-x-0 ${open ? "visible translate-x-0" : "invisible -translate-x-full"}`}
         >
-          <div className="relative border-b border-white/10 px-4 py-5">
+          <div className="relative border-b border-border px-4 py-2">
             <div className="flex min-h-12 items-center justify-center px-3 py-1.5 pr-12 lg:pr-3">
               <Image
                 src="/brand/tmb-logo.png"
                 alt="TMB Importaciones EIRL · Global Mobility & Industrial Solutions"
                 width={1765}
                 height={891}
-                sizes="192px"
-                className="h-auto w-44 brightness-0 invert"
+                sizes="128px"
+                className="h-auto w-32"
                 priority
               />
             </div>
             <button
               aria-label="Cerrar menú"
               onClick={() => setOpen(false)}
-              className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 shrink-0 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+              className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-background hover:text-primary lg:hidden"
             >
               <X size={20} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-2.5 py-5">
+          <div className="flex-1 overflow-y-auto px-3 py-5">
             {groups.map((group, index) => (
               <nav
                 key={group.label}
                 aria-label={group.label}
-                className={index > 0 ? "mt-6 border-t border-white/10 pt-5" : ""}
+                className={index > 0 ? "mt-7" : ""}
               >
-                <p className="mb-2 px-3 text-[10px] font-semibold tracking-[.14em] text-white/45">
+                <p className="mb-2 px-3 text-[10px] font-semibold tracking-[.14em] text-muted">
                   {group.label}
                 </p>
                 <div className="space-y-0.5">
@@ -151,10 +151,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
                         key={href}
                         href={href}
                         aria-current={active ? "page" : undefined}
-                        className={`group relative flex min-h-10 items-center gap-3 rounded-md px-3 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-green ${active ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/[0.07] hover:text-white"}`}
+                        className={`group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-green ${active ? "bg-accent-soft font-medium text-primary" : "text-muted hover:bg-background hover:text-primary"}`}
                       >
-                        {active && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-brand-green" />}
-                        <Icon size={17} strokeWidth={active ? 2 : 1.8} className={active ? "text-brand-green" : "text-white/55 transition-colors group-hover:text-white"} />
+                        {active && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-accent" />}
+                        <Icon size={17} strokeWidth={active ? 2 : 1.8} className={active ? "text-accent" : "text-muted transition-colors group-hover:text-primary"} />
                         {label}
                       </Link>
                     );
@@ -171,10 +171,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
             className="fixed inset-0 z-20 bg-black/20 lg:hidden"
           />
         )}
-        <div className="lg:ml-64 lg:min-h-screen lg:overflow-hidden lg:rounded-l-2xl lg:bg-background">
-          <header className="border-t-[3px] border-t-accent border-b border-border bg-white">
+        <div className="lg:ml-64 lg:min-h-screen lg:overflow-hidden lg:bg-background">
+          <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur-sm">
             <div className="mx-auto flex min-h-16 w-full max-w-[1500px] items-center justify-between px-5 md:px-8">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <button
                 aria-label="Abrir menú"
                 aria-expanded={open}
@@ -186,9 +186,9 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
               </button>
                 <PanelBreadcrumbs pathname={pathname} />
               </div>
-              <div className="flex items-center gap-4">
+              <div className="ml-2 flex shrink-0 items-center gap-1 sm:ml-4 sm:gap-4">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white ring-2 ring-inset ring-brand-green/70">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white ring-4 ring-background">
                   {seller ? seller.name.slice(0, 2).toUpperCase() : "…"}
                 </span>
                 <div className="hidden text-xs sm:block">
@@ -228,7 +228,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
               {error}
             </p>
           )}
-          <main className="mx-auto max-w-[1500px] bg-background px-5 pb-4 pt-5 md:px-8 md:pb-5 md:pt-8">
+          <main className="mx-auto max-w-[1500px] bg-background px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-6">
             {children}
           </main>
         </div>
