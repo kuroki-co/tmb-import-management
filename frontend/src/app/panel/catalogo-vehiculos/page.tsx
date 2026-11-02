@@ -5,6 +5,7 @@ import { ArrowUpRight, CarFront, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { TableRowsLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import {
   getCatalogSyncStatus,
   catalogVehicleName,
@@ -22,15 +23,6 @@ function money(vehicle: CatalogVehicle) {
   return `${vehicle.currency} ${vehicle.price.toLocaleString("es-PE", {
     minimumFractionDigits: 2,
   })}`;
-}
-
-function date(value: string | null) {
-  return value
-    ? new Intl.DateTimeFormat("es-PE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value))
-    : "Aún no sincronizado";
 }
 
 export default function VehicleCatalogPage() {
@@ -130,27 +122,14 @@ export default function VehicleCatalogPage() {
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
       {notice && <p role="status" className="rounded-lg border border-accent-border bg-accent-soft p-3 text-sm text-navy">{notice}</p>}
 
-      <section aria-label="Estado de sincronización" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Estado web", status?.status === "running" ? "En proceso" : status?.status === "failed" ? "Con error" : status?.status === "completed" ? "Actualizado" : "Pendiente"],
-          ["Páginas procesadas", String(status?.pagesProcessed ?? 0)],
-          ["Vehículos leídos", String(status?.vehiclesSeen ?? 0)],
-          ["Última extracción", date(status?.lastSuccessAt ?? null)],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-border bg-white p-4">
-            <p className="text-xs text-muted">{label}</p>
-            <p className="mt-2 text-sm font-semibold text-navy">{value}</p>
-          </div>
-        ))}
-      </section>
       {status?.pendingPages ? <p className="text-xs text-muted">Quedan {status.pendingPages} páginas en cola. La extracción avanza en lotes para no sobrecargar el sitio.</p> : null}
       {status?.lastError && <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">No se pudo extraer una parte del catálogo: {status.lastError}. Se conservan los vehículos válidos y puedes volver a intentar la sincronización.</p>}
 
-      <section className="overflow-hidden rounded-xl border border-border bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-4 md:p-5">
+      <section aria-label="Filtros del catálogo" className="rounded-xl border border-border bg-white p-4 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="font-semibold text-navy">Vehículos importados</h2>
-            <p className="mt-1 text-xs text-muted">{totalItems} vehículo(s) en los resultados</p>
+            <h2 className="text-sm font-semibold text-navy">Filtrar vehículos</h2>
+            <p className="mt-1 text-xs text-muted">Busca por nombre o acota los resultados por su origen.</p>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <label className="relative sm:w-72">
@@ -165,22 +144,26 @@ export default function VehicleCatalogPage() {
             </select>
           </div>
         </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-border bg-white">
         <div className="overflow-x-auto">
+          {loading && <p role="status" className="sr-only">Cargando catálogo de vehículos</p>}
           <table className="w-full min-w-[850px] text-left text-sm">
-            <thead className="bg-background text-xs text-muted">
+            <thead className="bg-[#eef3f2] text-[#526b73]">
               <tr>
-                <th scope="col" className="px-5 py-3 font-medium">Vehículo</th>
-                <th scope="col" className="px-5 py-3 font-medium">Origen</th>
-                <th scope="col" className="px-5 py-3 font-medium">Precio registrado</th>
-                <th scope="col" className="px-5 py-3 font-medium">Estado</th>
-                <th scope="col" className="px-5 py-3 text-right font-medium">Acción</th>
+                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Vehículo</th>
+                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Origen</th>
+                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Precio registrado</th>
+                <th scope="col" className="px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]">Estado</th>
+                <th scope="col" className="px-5 py-4 text-right text-[11px] font-semibold uppercase tracking-[.06em]">Acción</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {loading ? <tr><td colSpan={5} className="px-5 py-12 text-center text-muted">Cargando catálogo…</td></tr> : null}
+            <tbody aria-busy={loading} className="divide-y divide-border">
+              {loading ? <TableRowsLoadingSkeleton cells={["vehicle", "text", "price", "status", "actions"]} /> : null}
               {!loading && totalItems === 0 ? <tr><td colSpan={5} className="px-5 py-12 text-center text-muted">No encontramos vehículos con esos filtros.</td></tr> : null}
               {!loading && pageItems.map((item) => (
-                <tr key={item.id} className="align-middle">
+                <tr key={item.id} className="align-middle transition-colors hover:bg-background/50">
                   <td className="px-5 py-4">
                     <div className="flex items-start gap-3">
                       <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary"><CarFront size={18} aria-hidden /></span>
@@ -207,6 +190,7 @@ export default function VehicleCatalogPage() {
             page={currentPage}
             pageSize={pageSize}
             totalItems={totalItems}
+            itemsLabel="vehículos"
             onPageChange={setPage}
             onPageSizeChange={(nextPageSize) => {
               setPage(1);

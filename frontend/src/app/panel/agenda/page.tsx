@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, ExternalLink, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PanelAccess } from "@/features/panel/panel-access";
 import { getCalendarAgenda, getGoogleConnectUrl, type AgendaData } from "@/features/calendar/api";
 
@@ -70,10 +71,10 @@ export default function AgendaPage() {
       <section className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-white p-5">
         <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-primary"><CalendarDays size={22} aria-hidden /></span>
         <div>
-          <p className="text-sm font-semibold text-navy">{data?.connection ? "Calendario conectado" : "Conecta la agenda de TMB"}</p>
-          <p className="mt-1 text-sm text-muted">{data?.connection ? `${data.connection.google_email} · conectado el ${new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" }).format(new Date(data.connection.connected_at))}` : "Usaremos tu Google Calendar principal para comprobar disponibilidad y guardar las reuniones."}</p>
+          <p className="text-sm font-semibold text-navy">{loading && !data ? <Skeleton className="h-4 w-48" /> : data?.connection ? "Calendario conectado" : "Conecta la agenda de TMB"}</p>
+          <p className="mt-1 text-sm text-muted">{loading && !data ? <Skeleton className="h-4 w-72 max-w-[65vw]" /> : data?.connection ? `${data.connection.google_email} · conectado el ${new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" }).format(new Date(data.connection.connected_at))}` : "Usaremos tu Google Calendar principal para comprobar disponibilidad y guardar las reuniones."}</p>
         </div>
-        {!data?.connection && <span className="ml-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">Pendiente de conexión</span>}
+        {loading && !data ? <Skeleton className="ml-auto h-7 w-32" /> : !data?.connection && <span className="ml-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">Pendiente de conexión</span>}
       </section>
 
       <section className="overflow-hidden rounded-xl border border-border bg-white">
@@ -81,7 +82,7 @@ export default function AgendaPage() {
           <div><h2 className="font-semibold text-navy">Citas agendadas</h2><p className="mt-1 text-xs text-muted">La hora se muestra en America/Lima</p></div>
           <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted">{data?.appointments.length ?? 0} citas</span>
         </div>
-        {loading ? <p role="status" className="p-8 text-center text-sm text-muted">Cargando citas…</p> : !data?.appointments.length ? (
+        {loading && !data ? <div role="status" aria-label="Cargando citas" aria-busy="true" className="divide-y divide-border"><span className="sr-only">Cargando citas</span>{Array.from({ length: 4 }, (_, index) => <div key={index} aria-hidden className="flex items-center gap-4 px-5 py-4"><Skeleton className="h-10 w-10" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-56" /><Skeleton className="h-3 w-40" /></div><Skeleton className="h-7 w-24" /></div>)}</div> : !data?.appointments.length ? (
           <div className="px-5 py-14 text-center">
             <CalendarDays size={28} className="mx-auto text-muted" aria-hidden />
             <p className="mt-3 text-sm font-semibold text-navy">Todavía no hay citas</p>

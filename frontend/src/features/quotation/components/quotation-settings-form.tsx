@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, RefreshCw, Save, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
+import { SettingsLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import {
   loadQuotationSettings,
   saveQuotationSettings,
@@ -85,7 +86,7 @@ export function QuotationSettingsForm() {
         </div>
       )}
       {loading && !settings ? (
-        <p role="status" className="rounded-xl border border-border bg-white p-8 text-sm text-muted">Cargando parámetros…</p>
+        <SettingsLoadingSkeleton withHeading={false} />
       ) : settings ? (
         <form onSubmit={submit} className="space-y-5">
           <section className="rounded-xl border border-border bg-white p-5 md:p-6">

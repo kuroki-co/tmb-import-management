@@ -2,20 +2,6 @@ import PDFDocument from "npm:pdfkit@0.20.2";
 import { Buffer } from "node:buffer";
 import { fonts } from "./fonts.ts";
 import type { Fri } from "./validation.ts";
-import { localCostKeys } from "./quotation.ts";
-
-const localCostLabels: Record<(typeof localCostKeys)[number], string> = {
-  transportUsd: "Transporte",
-  insuranceUsd: "Seguro local",
-  freightUsd: "Flete local",
-  fobExpensesUsd: "Gastos FOB",
-  handlingUsd: "Handling",
-  customsUsd: "Aduanas",
-  gateInUsd: "Gate in",
-  storageUsd: "Almacén",
-  approvalUsd: "V°B°",
-  minimumCommissionUsd: "Comisión mínima",
-};
 
 type SavedQuotation = {
   input: unknown;
@@ -72,7 +58,6 @@ export class QuotationPdfService {
     const navy = "#203864";
     const green = "#29A64A";
     const ink = "#202936";
-    const muted = "#596579";
     const left = 34;
     const width = doc.page.width - left * 2;
     const bottom = doc.page.height - 34;
@@ -85,6 +70,8 @@ export class QuotationPdfService {
     const settings = quotation.settings as { perceptionRate?: number };
     const perceptionRate = input.adjustments?.perceptionRate ??
       settings.perceptionRate ?? 0.035;
+    const customsExpensesUsd = c.localSubtotalUsd - c.localIgvUsd;
+    const otherExpensesUsd = c.contentSubtotalUsd - c.importIgvUsd;
     const clientId = d.documentType === "RUC"
       ? `RUC ${d.documentNumber}`
       : `${d.documentType} ${d.documentNumber}`;
@@ -106,15 +93,15 @@ export class QuotationPdfService {
       doc.font("Helvetica-Bold").fontSize(8).fillColor(navy)
         .text(label, x, y, { width: w });
       doc.font("Helvetica").fontSize(9).fillColor(ink)
-        .text(value || "—", x + 102, y, { width: w - 106 });
+        .text(value || "—", x + 102, y, {
+          width: w - 106,
+          lineBreak: false,
+          ellipsis: true,
+        });
       doc.moveTo(x, y + 15).lineTo(x + w, y + 15).lineWidth(0.45)
         .strokeColor("#C4CCD7").stroke();
     };
     const value = (amount: number) => `$ ${money(amount)}`;
-    const exchangeRate = c.exchangeRate.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    });
 
     // Header follows the reference proforma: navy rule, company title, then two-column metadata.
     doc.rect(left, y, width, 8).fill(navy);
@@ -157,12 +144,11 @@ export class QuotationPdfService {
     }
     y += 3;
 
-    section("Descripción de la cotización");
     const tableX = left;
     const col = [width * 0.39, width * 0.21, width * 0.17, width * 0.23];
     const headerHeight = 19;
     doc.rect(tableX, y, width, headerHeight).fill(navy);
-    const headers = ["DESCRIPCIÓN", "PRECIO (USD)", "IGV (USD)", "TOTAL (USD)"];
+    const headers = ["DESCRIPCIÓN", "Precio Unit. (USD)", "IGV", "TOTAL (USD)"];
     let x = tableX;
     headers.forEach((label, index) => {
       doc.font("Helvetica-Bold").fontSize(7.5).fillColor("white")
@@ -179,7 +165,12 @@ export class QuotationPdfService {
       label: string,
       amount: number,
       igv = 0,
-      options: { bold?: boolean; total?: boolean; subtotal?: boolean } = {},
+      options: {
+        bold?: boolean;
+        total?: boolean;
+        subtotal?: boolean;
+        totalValue?: number;
+      } = {},
     ) => {
       const height = 14;
       ensure(height);
@@ -190,7 +181,15 @@ export class QuotationPdfService {
       const font = options.bold || options.total ? "Helvetica-Bold" : "Helvetica";
       doc.font(font).fontSize(8.4).fillColor(color)
         .text(label, tableX + 5, y + 4, { width: col[0] - 10, lineBreak: false });
-      const vals = [value(amount), igv ? value(igv) : "—", value(total)];
+      const vals = [
+        amount ? value(amount) : "—",
+        igv ? value(igv) : "—",
+        options.totalValue !== undefined
+          ? value(options.totalValue)
+          : total
+          ? value(total)
+          : "—",
+      ];
       let cellX = tableX + col[0];
       vals.forEach((text, index) => {
         doc.font(font).fontSize(8.4).fillColor(color)
@@ -207,54 +206,35 @@ export class QuotationPdfService {
       }
       y += height;
     };
-    const category = (label: string) => {
-      ensure(12);
-      doc.rect(tableX, y, width, 12).fill("#E8EDF4");
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(navy)
-        .text(label.toUpperCase(), tableX + 3, y + 3, { width: width - 6 });
-      y += 12;
-    };
-
-    category("Importación");
     tableRow("FOB", c.fobUsd);
     tableRow("Flete internacional", c.freightUsd);
-    tableRow("Seguro internacional", c.insuranceUsd);
-    tableRow("Subtotal importación (CIF)", c.cifUsd, 0, { subtotal: true });
-    category("Tributos de importación");
-    tableRow("ADV", c.advUsd);
-    tableRow("IPM", c.ipmUsd);
-    tableRow("IGV de importación", 0, c.importIgvUsd);
-    tableRow("Tasa de despacho", c.dispatchTaxUsd);
+    tableRow("Seguro", c.insuranceUsd);
     tableRow(
-      `Percepción ${(perceptionRate * 100).toLocaleString("es-PE", { maximumFractionDigits: 2 })}%`,
+      `Impuestos ${(perceptionRate * 100).toLocaleString("es-PE", { maximumFractionDigits: 2 })}% perc.`,
       c.perceptionUsd,
     );
-    category("Gastos locales");
-    for (const key of localCostKeys) {
-      const amount = c.localCosts[key] || 0;
-      if (amount > 0) tableRow(localCostLabels[key], amount);
-    }
-    tableRow("IGV de gastos locales", 0, c.localIgvUsd);
-    tableRow("TOTAL ESTIMADO", c.totalUsd, 0, { total: true });
-    y += 9;
-    doc.font("Helvetica").fontSize(7.5).fillColor(muted)
-      .text(
-        `Referencias calculadas en soles: derechos/tributos S/ ${money(c.customsDutiesPen)} · percepción S/ ${money(c.perceptionPen)} · T/C S/ ${exchangeRate} por USD. CIF es un subtotal de FOB, flete y seguro; no se suma nuevamente al total.`,
-        left,
-        y,
-        { width, lineGap: 1 },
-      );
-    y = doc.y + 10;
+    tableRow(
+      "Aduanas",
+      customsExpensesUsd,
+      c.localIgvUsd,
+    );
+    tableRow("Otros gastos", otherExpensesUsd, c.importIgvUsd);
+    tableRow("TOTAL", c.totalUsd - c.localIgvUsd, 0, {
+      total: true,
+      totalValue: c.totalUsd,
+    });
+    y += 15;
 
     section("Condiciones comerciales");
     const conditions = [
       "Los precios están expresados en dólares americanos (USD).",
       "La oferta está sujeta a disponibilidad y confirmación final del proveedor.",
-      `Forma de pago: ${d.payment || "según negociación comercial"}.`,
-      `Incoterm: ${d.incoterm || "según negociación comercial"}.`,
-      "Los impuestos y gastos son referenciales y pueden variar según la operación.",
-      "La proforma tiene una vigencia de 15 días calendario desde su emisión.",
-      "No incluye transporte local ni descarga, salvo que aparezcan como concepto cotizado.",
+      "Forma de pago: según negociación comercial.",
+      `El Incoterm indicado según la negociación${d.incoterm ? `, ${d.incoterm}` : ""}.`,
+      "Impuestos y gastos aproximados.",
+      "La proforma tiene una vigencia de 15 días calendario.",
+      "No incluye transporte local ni descarga.",
+      `Considerar comisión de ${money(c.localCosts.minimumCommissionUsd || 0)} USD.`,
     ];
     for (let i = 0; i < conditions.length; i++) {
       ensure(13);
@@ -279,53 +259,20 @@ export class QuotationPdfService {
       ["Cuenta CCI USD", "033-300-003006531908-16"],
       ["Código SWIFT", "BINPPEPL"],
     ];
-    const companyColWidth = (width - 16) / 2;
-    const [legalNameLabel, legalName] = companyRows[0];
-    ensure(14);
-    doc.font("Helvetica-Bold").fontSize(7.2).fillColor(navy)
-      .text(legalNameLabel, left + 2, y, { width: 82, lineBreak: false });
-    doc.font("Helvetica").fontSize(7.5).fillColor(ink)
-      .text(legalName, left + 84, y, {
-        width: width - 86,
-        align: "right",
-        lineBreak: false,
-      });
-    doc.moveTo(left, y + 11).lineTo(left + width, y + 11)
-      .lineWidth(0.35).strokeColor("#D7DDE5").stroke();
-    y += 13;
-    for (let i = 1; i < companyRows.length; i += 2) {
+    for (const [label, text] of companyRows) {
       ensure(14);
-      for (let cell = 0; cell < 2; cell++) {
-        const item = companyRows[i + cell];
-        if (!item) continue;
-        const x = left + cell * (companyColWidth + 16);
-        const [label, text] = item;
-        doc.font("Helvetica-Bold").fontSize(7.2).fillColor(navy)
-          .text(label, x + 2, y, { width: 74, lineBreak: false });
-        doc.font("Helvetica").fontSize(7.2).fillColor(ink)
-          .text(text, x + 76, y, {
-            width: companyColWidth - 78,
-            align: "right",
-            lineBreak: false,
-          });
-      }
+      doc.font("Helvetica-Bold").fontSize(7.2).fillColor(navy)
+        .text(label, left + 2, y, { width: 98, lineBreak: false });
+      doc.font("Helvetica").fontSize(7.5).fillColor(ink)
+        .text(text, left + 102, y, {
+          width: width - 104,
+          align: "right",
+          lineBreak: false,
+          ellipsis: true,
+        });
       doc.moveTo(left, y + 11).lineTo(left + width, y + 11)
         .lineWidth(0.35).strokeColor("#D7DDE5").stroke();
       y += 13;
-    }
-
-    const pages = doc.bufferedPageRange();
-    for (let page = 0; page < pages.count; page++) {
-      doc.switchToPage(page);
-      const bodyMargin = doc.page.margins.bottom;
-      doc.page.margins.bottom = 0;
-      doc.font("Helvetica").fontSize(7).fillColor(muted)
-        .text(`${fri.code}  |  ${page + 1} / ${pages.count}`, left, doc.page.height - 28, {
-          width,
-          align: "right",
-          lineBreak: false,
-        });
-      doc.page.margins.bottom = bodyMargin;
     }
     doc.end();
     return result;

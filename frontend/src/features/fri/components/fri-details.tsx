@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, CheckCircle2, FileText } from "lucide-react";
+import { Download, CheckCircle2, FileText } from "lucide-react";
 
 import { Brand } from "@/components/ui/brand";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { FriSummary } from "./fri-summary";
 import { StatusBadge } from "./status-badge";
 import { getReceiptToken } from "../receipt-storage";
 import { AppointmentBooker } from "@/features/calendar/appointment-booker";
+import { DetailLoadingSkeleton } from "@/components/ui/loading-skeletons";
 export function FriDetails({
   id,
   receipt = false,
@@ -132,8 +133,13 @@ export function FriDetails({
   };
   const body = (
     <>
-      <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="mb-6 flex flex-col justify-between gap-4 rounded-2xl border border-border bg-white p-5 md:flex-row md:items-center md:p-6">
+        <div className="min-w-0">
+          {fri && (
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              Solicitud FRI · {fri.code}
+            </p>
+          )}
           <h1 className="text-2xl font-semibold">
             {receipt && fri
               ? "¡Solicitud enviada correctamente!"
@@ -150,34 +156,50 @@ export function FriDetails({
                 : error
                   ? "No pudimos consultar la ficha. Revisa el mensaje e inténtalo de nuevo."
                   : "Estamos consultando el registro de tu requerimiento."
-              : "Requerimiento de importación y datos de contacto del cliente."}
+              : fri
+                ? `${fri.data.brand} ${fri.data.model} · ${fri.data.year} · ${fri.data.quantity} unidad(es)`
+                : "Requerimiento de importación del cliente."}
           </p>
-          {fri && (
-            <p className="mt-3 text-sm font-semibold text-primary">
-              Código de solicitud: {fri.code}
-            </p>
+          {!receipt && fri && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <StatusBadge status={fri.status} />
+              <span className="text-xs text-muted">
+                Recibida el {new Date(fri.createdAt).toLocaleDateString("es-PE")}
+              </span>
+            </div>
           )}
         </div>
-        {pdf && (
-          <a
-            href={pdf}
-            download={`FRI-${fri?.code || id}.pdf`}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            <Download size={16} />
-            Descargar PDF
-          </a>
-        )}
-        {receipt && quoteAvailable && (
-          <Button
-            onClick={handleQuotationDownload}
-            disabled={quoteDownloading}
-            className="inline-flex items-center gap-2"
-          >
-            <Download size={16} />
-            {quoteDownloading ? "Preparando proforma…" : "Descargar cotización"}
-          </Button>
-        )}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {!receipt && fri && (
+            <Link
+              href={`/panel/cotizaciones/${fri.id}`}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
+            >
+              <FileText size={16} />
+              {fri.status === "Cotizado" ? "Ver cotización" : "Preparar cotización"}
+            </Link>
+          )}
+          {pdf && (
+            <a
+              href={pdf}
+              download={`FRI-${fri?.code || id}.pdf`}
+              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold ${receipt ? "bg-primary text-white hover:bg-primary-hover" : "border border-border bg-white text-primary hover:bg-background"}`}
+            >
+              <Download size={16} />
+              Descargar FRI
+            </a>
+          )}
+          {receipt && quoteAvailable && (
+            <Button
+              variant="secondary"
+              onClick={handleQuotationDownload}
+              disabled={quoteDownloading}
+            >
+              <Download size={16} />
+              {quoteDownloading ? "Preparando proforma…" : "Descargar proforma"}
+            </Button>
+          )}
+        </div>
       </div>
       {error && (
         <div
@@ -195,9 +217,7 @@ export function FriDetails({
         </div>
       )}
       {!fri && !error && (
-        <p role="status" className="p-10 text-center text-sm text-muted">
-          Cargando solicitud…
-        </p>
+        <DetailLoadingSkeleton />
       )}
       {fri && (
         <>
@@ -214,41 +234,6 @@ export function FriDetails({
           {quoteError && (
             <p role="alert" className="mb-5 text-sm text-danger">{quoteError}</p>
           )}
-          {!receipt && fri && (
-            <Link
-              href={`/panel/cotizaciones/${fri.id}`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
-            >
-              <FileText size={16} />
-              {fri.status === "Cotizado" ? "Ver cotización" : "Preparar cotización"}
-            </Link>
-          )}
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            {[
-              ["Cliente", fri.data.name],
-              [
-                "Vehículo",
-                `${fri.data.brand} ${fri.data.model} · ${fri.data.year}`,
-              ],
-              ["Presupuesto", `USD ${fri.data.budget.toLocaleString("es-PE")}`],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="rounded-xl border border-border bg-white p-4"
-              >
-                <p className="text-xs text-muted">{label}</p>
-                <p className="mt-2 text-sm font-semibold">{value}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mb-6 flex flex-wrap items-center gap-4">
-            <StatusBadge status={fri.status} />
-            {!receipt && (
-              <span className="text-xs text-muted">
-                Código comercial: {fri.code}
-              </span>
-            )}
-          </div>
           <div className="mb-6">
             <FriSummary data={fri.data} compact={receipt} />
           </div>
@@ -272,16 +257,7 @@ export function FriDetails({
   );
   if (!receipt)
     return (
-      <>
-        <Link
-          href="/panel/solicitudes"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-muted"
-        >
-          <ArrowLeft size={15} />
-          Volver a solicitudes
-        </Link>
-        {body}
-      </>
+      <>{body}</>
     );
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 md:px-8">

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 export const inputClass =
-  "w-full min-w-0 rounded-lg border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted/60 transition-colors hover:border-muted/50 focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "w-full min-w-0 rounded-md border border-border bg-white px-3.5 py-3 text-sm text-foreground placeholder:text-muted/60 transition-colors hover:border-muted/50 focus:border-accent focus:ring-2 focus:ring-accent/20";
 export function Field({
   label,
   required,

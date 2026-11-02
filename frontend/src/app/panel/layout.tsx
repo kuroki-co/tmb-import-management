@@ -1,5 +1,6 @@
 import { PanelShell } from "@/features/panel/panel-shell";
 import { Suspense } from "react";
+import { PanelLoadingSkeleton } from "@/components/ui/loading-skeletons";
 export default function PanelLayout({
   children,
 }: {
@@ -7,7 +8,7 @@ export default function PanelLayout({
 }) {
   return (
     <Suspense
-      fallback={<p className="p-8 text-sm text-muted">Cargando panel…</p>}
+      fallback={<PanelLoadingSkeleton />}
     >
       <PanelShell>{children}</PanelShell>
     </Suspense>

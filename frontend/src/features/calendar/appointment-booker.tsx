@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { getReceiptToken } from "@/features/fri/receipt-storage";
 import { bookCalendarSlot, getCalendarSlots } from "./api";
@@ -91,7 +92,7 @@ export function AppointmentBooker({ requestId }: { requestId: string }) {
           </label>
           <div>
             <p className="text-sm font-medium text-navy">Horarios disponibles</p>
-            {loading ? <p role="status" className="mt-3 text-sm text-muted">Consultando disponibilidad…</p> : slots.length ? (
+            {loading ? <div role="status" aria-label="Consultando disponibilidad" aria-busy="true" className="mt-3 flex flex-wrap gap-2"><span className="sr-only">Consultando disponibilidad</span>{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-10 w-24 rounded-lg" />)}</div> : slots.length ? (
               <div className="mt-2 flex flex-wrap gap-2">
                 {slots.map((slot) => <button type="button" key={slot} aria-pressed={selected === slot} onClick={() => setSelected(slot)} className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors ${selected === slot ? "border-primary bg-primary text-white" : "border-border bg-white text-foreground hover:border-primary"}`}><Clock3 size={14} aria-hidden />{new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", hour: "2-digit", minute: "2-digit" }).format(new Date(slot))}</button>)}
               </div>

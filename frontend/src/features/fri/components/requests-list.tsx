@@ -2,19 +2,21 @@
 import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ClipboardList,
   Search,
   ArrowUpRight,
-  Eye,
   RefreshCw,
 } from "lucide-react";
 import { listFri, type Fri } from "../api";
 import { Button } from "@/components/ui/button";
 import { inputClass } from "@/components/ui/field";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { RequestRowsLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { StatusBadge } from "./status-badge";
 export function RequestsList() {
+  const router = useRouter();
   const [rows, setRows] = useState<Fri[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -76,12 +78,13 @@ export function RequestsList() {
     <>
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs font-semibold text-primary">
+          <p className="mb-2 flex items-center gap-2 text-[11px] font-bold tracking-[.15em] text-accent">
+            <span aria-hidden="true" className="h-[2px] w-6 bg-brand-green" />
             GESTIÓN COMERCIAL
           </p>
-          <h1 className="text-2xl font-semibold">Solicitudes FRI</h1>
-          <p className="mt-2 text-sm text-muted">
-            Revisa los requerimientos de importación recibidos.
+          <h1 className="text-[2rem] font-semibold leading-tight tracking-[-.035em] text-navy">Solicitudes FRI</h1>
+          <p className="mt-2 max-w-xl text-[14px] leading-6 text-muted">
+            Prioriza los requerimientos pendientes y continúa con su cotización.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -106,17 +109,17 @@ export function RequestsList() {
           <Link
             href="/fri"
             target="_blank"
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white"
+            className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <ArrowUpRight size={16} />
             Abrir formulario FRI
           </Link>
         </div>
       </div>
-      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-white">
-        <div aria-label="Filtrar por estado" className="hidden flex-wrap gap-1 border-b border-border p-2 md:flex">
-          {["Solicitudes recibidas", "Pendiente a revisar", "En revisión", "Cotizado"].map((label) => {
-            const value = label === "Solicitudes recibidas" ? "" : label;
+      <div className="mb-4 overflow-hidden rounded-lg border border-border bg-white">
+        <div aria-label="Filtrar por estado" className="hidden flex-wrap gap-2 border-b border-border px-4 py-2.5 md:flex">
+          {["Todas", "Pendiente a revisar", "En revisión", "Cotizado"].map((label) => {
+            const value = label === "Todas" ? "" : label;
             const count = value ? rows.filter((row) => row.status === value).length : rows.length;
             return (
               <button
@@ -129,15 +132,15 @@ export function RequestsList() {
                   setPage(1);
                   setStatus(value);
                 }}
-                className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm transition-colors ${status === value ? "bg-accent-soft font-semibold text-primary" : "text-muted hover:bg-background"}`}
+                className={`flex min-h-11 items-center gap-2.5 rounded-md px-4 text-sm transition-colors ${status === value ? "bg-accent font-semibold text-white" : "text-muted hover:bg-background hover:text-foreground"}`}
               >
                 {value || "Todas"}
-                <span className="rounded-full bg-background px-2 py-0.5 text-xs tabular-nums">{updatedAt ? count : "—"}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${status === value ? "bg-white/20 text-white" : "bg-background"}`}>{updatedAt ? count : "—"}</span>
               </button>
             );
           })}
         </div>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-3 md:grid-cols-[minmax(0,1fr)_11rem_auto]">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 p-3.5 md:grid-cols-[minmax(0,1fr)_11rem_auto] md:gap-3 md:p-4">
         <div className="relative order-1 col-span-2 min-w-0 md:col-span-1">
           <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -199,7 +202,7 @@ export function RequestsList() {
           </button>
         </div>
       </div>
-      <section className="overflow-hidden rounded-xl border border-border bg-white">
+      <section className="overflow-hidden rounded-lg border border-border bg-white">
         {error && updatedAt && (
           <div
             role="alert"
@@ -235,14 +238,7 @@ export function RequestsList() {
             </Button>
           </div>
         ) : loading && !updatedAt ? (
-          <div role="status" className="space-y-4 p-6">
-            {[1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                className="h-12 animate-pulse rounded-lg bg-background motion-reduce:animate-none"
-              />
-            ))}
-          </div>
+          <RequestRowsLoadingSkeleton />
         ) : !filtered.length ? (
           <div className="px-6 py-16 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-primary">
@@ -315,19 +311,18 @@ export function RequestsList() {
             </div>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-border bg-background text-[11px] text-muted">
+                <thead className="border-b border-border bg-[#eef3f2] text-[#526b73]">
                   <tr>
                     {[
-                      "CLIENTE",
-                      "VEHÍCULO",
-                      "PRESUPUESTO",
-                      "RECIBIDA",
-                      "ESTADO",
-                      "",
+                      "Cliente",
+                      "Vehículo",
+                      "Presupuesto",
+                      "Recibida",
+                      "Estado",
                     ].map((h, i) => (
                       <th
                         key={i}
-                        className="whitespace-nowrap px-5 py-4 font-semibold"
+                        className="whitespace-nowrap px-5 py-4 text-[11px] font-semibold uppercase tracking-[.06em]"
                       >
                         {h}
                       </th>
@@ -338,11 +333,13 @@ export function RequestsList() {
                   {pageRows.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-border last:border-0 hover:bg-background/60"
+                      onClick={() => router.push(`/panel/solicitudes/${row.id}`)}
+                      className="cursor-pointer border-b border-border last:border-0 hover:bg-background/60"
                     >
                       <td className="px-5 py-4">
                         <Link
                           href={`/panel/solicitudes/${row.id}`}
+                          onClick={(event) => event.stopPropagation()}
                           className="font-semibold hover:text-primary hover:underline"
                         >
                           {row.data.name}
@@ -371,15 +368,6 @@ export function RequestsList() {
                       <td className="px-5 py-4">
                         <StatusBadge status={row.status} />
                       </td>
-                      <td className="px-5 py-4">
-                        <Link
-                          href={`/panel/solicitudes/${row.id}`}
-                          className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 text-xs font-semibold text-primary transition-colors hover:border-accent-border hover:bg-accent-soft focus-visible:outline-offset-2"
-                        >
-                          Ver detalle
-                          <Eye size={14} aria-hidden />
-                        </Link>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -400,25 +388,6 @@ export function RequestsList() {
             }}
           />
         )}
-        <div
-          aria-live="polite"
-          className={`flex flex-wrap justify-between gap-x-2 gap-y-1 px-4 py-2 text-[11px] text-muted ${!loading && filtered.length > 0 ? "" : "border-t border-border"}`}
-        >
-          <span>
-            {updatedAt
-              ? `${filtered.length} solicitud(es) en total`
-              : "Sin datos cargados"}
-          </span>
-          {updatedAt && (
-            <span>
-              Última actualización:{" "}
-              {updatedAt.toLocaleTimeString("es-PE", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          )}
-        </div>
       </section>
     </>
   );

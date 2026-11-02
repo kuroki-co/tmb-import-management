@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FriFormLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { Field, inputClass } from "@/components/ui/field";
 import { declarationText, departments } from "../options";
 import { defaults, type FriFormValues, friSchema, stepFields, transmissions, fuelGroups, fuelTypesByGroup, vehicleTypes } from "../schema";
@@ -532,14 +533,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     }
   }
   if (!ready) {
-    return (
-      <div
-        role="status"
-        className="rounded-xl border border-border bg-white p-8 text-sm text-muted"
-      >
-        Recuperando tu formulario…
-      </div>
-    );
+    return <FriFormLoadingSkeleton />;
   }
   return (
     <div className="grid w-full min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">

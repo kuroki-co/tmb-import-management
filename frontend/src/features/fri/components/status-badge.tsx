@@ -3,7 +3,7 @@ import type { Fri } from "../api";
 const states = {
   "Pendiente a revisar": { icon: Clock3, style: "bg-amber-50 text-amber-800" },
   "En revisión": { icon: Search, style: "bg-accent-soft text-accent" },
-  Cotizado: { icon: FileText, style: "bg-violet-50 text-violet-800" },
+  Cotizado: { icon: FileText, style: "bg-[#eaf0f8] text-primary" },
   "Confirmado a compra": {
     icon: CheckCircle2,
     style: "bg-success-soft text-success",

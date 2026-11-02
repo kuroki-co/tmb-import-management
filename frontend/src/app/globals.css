@@ -10,11 +10,11 @@
   --color-success: #23633b;
   --color-success-soft: #edf6eb;
   --color-navy: #092943;
-  --color-background: #f4f7f8;
+  --color-background: #f3f6f5;
   --color-surface: #ffffff;
-  --color-foreground: #172e40;
-  --color-muted: #526777;
-  --color-border: #d8e2e7;
+  --color-foreground: #182f3c;
+  --color-muted: #5c7078;
+  --color-border: #dbe5e4;
   --color-danger: #b42335;
   --font-sans: "Segoe UI", Arial, Helvetica, sans-serif;
 }
@@ -59,6 +59,10 @@ select:focus {
 select:focus-visible {
   outline: none;
 }
+.tmb-select:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
 @media (forced-colors: active) {
   .tmb-select {
     appearance: auto;
@@ -82,6 +86,7 @@ select,
 textarea {
   font: inherit;
 }
+
 [data-field-error] :is(input, select, textarea) {
   border-color: var(--color-danger);
   background-color: #fff8f8;

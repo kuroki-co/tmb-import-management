@@ -8,6 +8,7 @@ export function TablePagination({
   onPageChange,
   onPageSizeChange,
   label,
+  itemsLabel,
 }: {
   page: number;
   pageSize: number;
@@ -15,6 +16,7 @@ export function TablePagination({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   label: string;
+  itemsLabel?: string;
 }) {
   if (totalItems === 0) return null;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -28,7 +30,7 @@ export function TablePagination({
       className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3"
     >
       <p className="text-xs text-muted" aria-live="polite">
-        Mostrando <span className="font-medium text-foreground">{firstItem}–{lastItem}</span> de {totalItems}
+        Mostrando <span className="font-medium text-foreground">{firstItem}–{lastItem}</span> de {totalItems}{itemsLabel ? ` ${itemsLabel}` : ""}
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-xs text-muted">

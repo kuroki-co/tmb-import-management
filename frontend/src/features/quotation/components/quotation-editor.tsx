@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, FileText, Mail, RotateCcw, Save } from "lucide-react";
+import { Check, ChevronDown, FileText, Mail, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
+import { QuotationLoadingSkeleton } from "@/components/ui/loading-skeletons";
 import { loadFri, type Fri } from "@/features/fri/api";
 import { calculateQuotation } from "../calculations";
 import { loadQuotation, loadQuotationSettings, saveQuotation, sendQuotationEmail, type Quotation } from "../api";
@@ -73,6 +74,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
   }, [requestId]);
 
   const preview = useMemo(() => settings ? calculateQuotation(input, settings) : null, [input, settings]);
+  const hasRequiredAmounts = input.fobUsd > 0 && input.freightUsd > 0;
 
   function setAmount(key: "fobUsd" | "freightUsd", text: string) {
     setInput((current) => ({ ...current, [key]: text === "" ? 0 : Number(text) }));
@@ -156,44 +158,50 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
 
   return (
     <>
-      <Link href="/panel/solicitudes" className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted hover:text-primary">
-        <ArrowLeft size={16} />Volver a solicitudes
-      </Link>
-      {loading ? <p role="status" className="rounded-xl border border-border bg-white p-8 text-sm text-muted">Cargando datos de la solicitud…</p> : !fri || !settings ? (
+      {loading ? <QuotationLoadingSkeleton /> : !fri || !settings ? (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-danger">{error || "No encontramos la solicitud o la configuración de cotización."}</div>
       ) : (
         <>
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 text-xs font-semibold text-primary">COTIZACIÓN COMERCIAL · {fri.code}</p>
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border bg-white p-5 md:p-6">
+            <div className="min-w-0">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">Cotización comercial <span className="px-1 text-muted">/</span> {fri.code}</p>
               <h1 className="text-2xl font-semibold">{quote ? "Editar cotización" : "Preparar cotización"}</h1>
-              <p className="mt-2 text-sm text-muted">{fri.data.name} · {fri.data.brand} {fri.data.model} · {fri.data.quantity} unidad(es)</p>
+              <p className="mt-2 text-sm text-muted">Completa los costos confirmados con la proveedora. El sistema calcula los demás conceptos con los parámetros vigentes.</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-lg bg-background px-3 py-2 font-medium text-foreground">{fri.data.name}</span>
+                <span className="rounded-lg bg-background px-3 py-2 font-medium text-foreground">{fri.data.brand} {fri.data.model} · {fri.data.year}</span>
+                <span className="rounded-lg bg-background px-3 py-2 font-medium text-foreground">{fri.data.quantity} unidad(es)</span>
+              </div>
             </div>
-            <Link href={`/panel/solicitudes/${fri.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold hover:bg-background"><FileText size={16} />Ver solicitud FRI</Link>
-          </div>
-
-          <div className="mb-5 rounded-xl border border-accent-border bg-accent-soft px-4 py-3 text-sm leading-6 text-navy">
-            Ingresa FOB y flete. Los cálculos usan los parámetros base guardados; cualquier ajuste hecho aquí queda solo en esta cotización.
+            <Link href={`/panel/solicitudes/${fri.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold hover:bg-background"><FileText size={16} />Ver solicitud FRI</Link>
           </div>
 
           {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">{error}</p>}
 
-          <form onSubmit={submit} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <form onSubmit={submit} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
             <div className="space-y-5">
               <section className="rounded-xl border border-border bg-white p-5 md:p-6">
-                <h2 className="font-semibold">Importación marítima FCL</h2>
-                <p className="mt-1 text-xs text-muted">Precios proporcionados por la proveedora.</p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-semibold">Costos de importación</h2>
+                    <p className="mt-1 text-sm text-muted">Importación marítima FCL</p>
+                  </div>
+                  <span className="rounded-full bg-accent-soft px-3 py-1.5 text-xs font-semibold text-primary">2 datos requeridos</span>
+                </div>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <Field label="FOB (USD)" required hint={fri.data.catalogReference?.currency.toUpperCase() === "USD" && fri.data.catalogReference.price !== null ? `Precio referencial del ${fri.data.catalogReference.sourceType === "supplier_excel" ? "Excel de proveedora" : "catálogo web"}: USD ${fmt.format(fri.data.catalogReference.price)}. Confirma o ajusta con la proveedora.` : "Este FRI no tiene un FOB referencial de catálogo. Ingresa el precio confirmado por la proveedora."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.fobUsd || undefined)} onChange={(e) => setAmount("fobUsd", e.target.value)} required /></Field>
-                  <Field label="Flete internacional (USD)" required hint={fri.data.vehicleType === "Automóvil" ? "Valor referencial precargado: USD 3,000 para automóvil. Confirma o ajusta el flete real." : fri.data.vehicleType === "Camión" ? "Valor referencial precargado: USD 9,000 para camión. Confirma o ajusta el flete real." : "El FRI no especifica el tipo de vehículo. Ingresa el flete internacional confirmado."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.freightUsd || undefined)} onChange={(e) => setAmount("freightUsd", e.target.value)} required /></Field>
+                  <Field label="FOB · precio en China (USD)" required hint={fri.data.catalogReference?.currency.toUpperCase() === "USD" && fri.data.catalogReference.price !== null ? `Referencia del catálogo: ${usd(fri.data.catalogReference.price)}. Confirma el precio con la proveedora.` : "No hay precio de catálogo para este vehículo. Ingresa el precio confirmado por la proveedora."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.fobUsd || undefined)} onChange={(e) => setAmount("fobUsd", e.target.value)} placeholder="0.00" required /></Field>
+                  <Field label="Flete internacional (USD)" required hint={fri.data.vehicleType === "Automóvil" ? "Referencia precargada para automóvil: USD 3,000. Confirma el costo real." : fri.data.vehicleType === "Camión" ? "Referencia precargada para camión: USD 9,000. Confirma el costo real." : "Ingresa el flete internacional confirmado por la proveedora."}><input className={inputClass} type="number" min="0.01" step="0.01" value={amountText(input.freightUsd || undefined)} onChange={(e) => setAmount("freightUsd", e.target.value)} placeholder="0.00" required /></Field>
                 </div>
               </section>
 
-              <details className="rounded-xl border border-border bg-white">
-                <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold marker:hidden">Ajustes excepcionales de esta cotización <span className="ml-1 text-xs font-normal text-muted">· opcional</span></summary>
+              <details className="group rounded-xl border border-border bg-white">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 marker:hidden">
+                  <span><span className="text-sm font-semibold">Ajustes excepcionales</span><span className="ml-2 text-xs font-medium text-muted">Opcional · solo esta cotización</span></span>
+                  <ChevronDown size={17} className="shrink-0 text-muted transition-transform group-open:rotate-180" />
+                </summary>
                 <div className="border-t border-border px-5 py-5">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="max-w-xl text-xs leading-5 text-muted">Deja un campo vacío para usar el valor base. Los ajustes no cambian la configuración general.</p>
+                    <p className="max-w-xl text-sm leading-5 text-muted">Ajusta un parámetro solo si esta operación lo requiere. Si lo dejas vacío, se aplicará el valor base; estos cambios no alteran la configuración general.</p>
                     <button type="button" onClick={resetAdjustments} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-primary hover:bg-background"><RotateCcw size={14} />Restablecer valores base</button>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -211,50 +219,101 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
               </details>
             </div>
 
-            <aside className="rounded-xl border border-border bg-white p-5 xl:sticky xl:top-5">
-              <h2 className="font-semibold">Resumen del cálculo</h2>
-              <p className="mt-1 text-xs text-muted">Vista previa en tiempo real</p>
-              {preview && <div className="mt-5 space-y-5 text-sm">
-                <Group title="Importación marítima">
-                  <Row label="FOB" value={preview.fobUsd} />
-                  <Row label="Flete" value={preview.freightUsd} />
-                  <Row label="Seguro" value={preview.insuranceUsd} dashOnZero={false} />
-                  <Row label="CIF" value={preview.cifUsd} strong />
-                </Group>
-                <Group title="Contenido">
-                  <Row label="ADV" value={preview.advUsd} />
-                  <Row label="IPM" value={preview.ipmUsd} />
-                  <Row label="IGV" value={preview.importIgvUsd} />
-                  <Row label="Tasa de despacho" value={preview.dispatchTaxUsd} />
-                  <Row label="Subtotal" value={preview.contentSubtotalUsd} strong />
-                  <Row label={`Percepción ${fmt.format((input.adjustments.perceptionRate ?? settings.perceptionRate) * 100)}%`} value={preview.perceptionUsd} />
-                </Group>
-                <Group title="Gastos locales">
-                  {localCostKeys.map((key) => <Row key={key} label={localCostLabels[key]} value={preview.localCosts[key]} />)}
-                  <Row label="IGV de gastos" value={preview.localIgvUsd} />
-                  <Row label="Subtotal gastos" value={preview.localSubtotalUsd} strong />
-                </Group>
-                <Group title="Referencia en soles">
-                  <Row label="Derechos de aduana" customValue={pen(preview.customsDutiesPen)} />
-                  <Row label="Percepción" customValue={pen(preview.perceptionPen)} />
-                  <p className="pt-1 text-[11px] text-muted">T/C {fmt.format(preview.exchangeRate)} S/ por USD</p>
-                </Group>
-                <div className="rounded-xl bg-primary px-4 py-4 text-white">
-                  <p className="text-xs text-white/75">TOTAL DE LA COTIZACIÓN</p>
-                  <p className="mt-1 text-2xl font-semibold tabular-nums">{usd(preview.totalUsd)}</p>
+            <aside className="rounded-2xl border border-border bg-white p-5 xl:sticky xl:top-5 xl:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Resumen de cotización</h2>
+                  <p className="mt-1 text-sm text-muted">Se actualiza al editar los costos</p>
                 </div>
-              </div>}
+                <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted">USD</span>
+              </div>
+              {preview && hasRequiredAmounts ? <div className="mt-5">
+                <div className="rounded-2xl bg-primary px-5 py-5 text-white">
+                  <p className="text-xs font-medium text-white/75">TOTAL ESTIMADO</p>
+                  <p className="mt-2 text-3xl font-semibold tabular-nums">{usd(preview.totalUsd)}</p>
+                  <p className="mt-2 text-xs leading-5 text-white/75">Cálculo basado en los parámetros de cotización vigentes.</p>
+                </div>
+                <div className="mt-4 divide-y divide-border rounded-xl border border-border px-3.5">
+                  {[
+                    { label: "FOB", amount: preview.fobUsd },
+                    { label: "Flete internacional", amount: preview.freightUsd },
+                    { label: "Seguro", amount: preview.insuranceUsd },
+                    {
+                      label: `Impuestos ${fmt.format((input.adjustments.perceptionRate ?? settings.perceptionRate) * 100)}% perc.`,
+                      amount: preview.perceptionUsd,
+                    },
+                    {
+                      label: "Aduanas",
+                      amount: preview.localSubtotalUsd,
+                      hint: "Costos locales e IGV",
+                    },
+                    {
+                      label: "Otros gastos",
+                      amount: preview.contentSubtotalUsd,
+                      hint: "Tributos y despacho de importación",
+                    },
+                  ].map(({ label, amount, hint }) => (
+                    <div key={label} className="flex items-center justify-between gap-3 py-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{label}</p>
+                        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+                      </div>
+                      <span className="shrink-0 tabular-nums text-foreground">{amount ? usd(amount) : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+                <details className="group mt-3 rounded-xl border border-border px-3.5 py-3">
+                  <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium marker:hidden">
+                    <span>Ver desglose del cálculo</span>
+                    <ChevronDown size={15} className="shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="mt-3 space-y-3 border-t border-border pt-3">
+                    <BreakdownGroup title="Importación marítima" total={preview.cifUsd}>
+                      <Row label="FOB · precio en China" value={preview.fobUsd} />
+                      <Row label="Flete internacional" value={preview.freightUsd} />
+                      <Row label="Seguro" value={preview.insuranceUsd} dashOnZero={false} />
+                      <Row label="CIF" value={preview.cifUsd} strong />
+                    </BreakdownGroup>
+                    <BreakdownGroup title="Tributos de importación" total={preview.contentSubtotalUsd + preview.perceptionUsd}>
+                      <Row label="ADV" value={preview.advUsd} />
+                      <Row label="IPM" value={preview.ipmUsd} />
+                      <Row label="IGV de importación" value={preview.importIgvUsd} />
+                      <Row label="Tasa de despacho" value={preview.dispatchTaxUsd} />
+                      <Row label="Subtotal" value={preview.contentSubtotalUsd} strong />
+                      <Row label={`Percepción ${fmt.format((input.adjustments.perceptionRate ?? settings.perceptionRate) * 100)}%`} value={preview.perceptionUsd} />
+                    </BreakdownGroup>
+                    <BreakdownGroup title="Gastos locales" total={preview.localSubtotalUsd}>
+                      {localCostKeys.map((key) => <Row key={key} label={localCostLabels[key]} value={preview.localCosts[key]} />)}
+                      <Row label="IGV de gastos" value={preview.localIgvUsd} />
+                      <Row label="Subtotal gastos" value={preview.localSubtotalUsd} strong />
+                    </BreakdownGroup>
+                    <section className="rounded-xl border border-border px-3.5 py-3">
+                      <h3 className="text-sm font-medium">Referencia en soles</h3>
+                      <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
+                        <Row label="Derechos de aduana" customValue={pen(preview.customsDutiesPen)} />
+                        <Row label="Percepción" customValue={pen(preview.perceptionPen)} />
+                        <p className="pt-1 text-xs text-muted">Tipo de cambio: {fmt.format(preview.exchangeRate)} S/ por USD</p>
+                      </div>
+                    </section>
+                  </div>
+                </details>
+              </div> : (
+                <div className="mt-5 rounded-xl border border-dashed border-border bg-background p-5 text-center">
+                  <p className="text-sm font-semibold">Aún no hay un total para mostrar</p>
+                  <p className="mt-2 text-sm leading-5 text-muted">Ingresa el FOB y el flete internacional para calcular la cotización.</p>
+                </div>
+              )}
               <div className="mt-5 border-t border-border pt-4">
                 {quote && <p className="mb-3 flex items-center gap-2 text-xs text-success"><Check size={15} />Cotización guardada el {new Date(quote.updatedAt).toLocaleDateString("es-PE")}</p>}
                 {saved && <p role="status" className="mb-3 flex items-center gap-2 text-xs text-success"><Check size={15} />Guardada. La solicitud pasó a Cotizado.</p>}
                 {emailNotice && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-xs text-green-900">{emailNotice}</p>}
-                <Button className="w-full" type="submit" disabled={saving || !input.fobUsd || !input.freightUsd}><Save size={16} />{saving ? "Guardando…" : quote ? "Guardar cambios" : "Guardar cotización"}</Button>
+                {quote && !saved && <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">Tienes cambios sin guardar. Guarda la cotización para conservarlos y habilitar el envío.</p>}
+                <Button className="w-full" type="submit" disabled={saving || !hasRequiredAmounts}><Save size={16} />{saving ? "Guardando cotización…" : quote ? "Guardar cambios" : "Guardar cotización"}</Button>
                 <Button className="mt-2 w-full" type="button" variant="secondary" onClick={() => void sendByEmail()} disabled={!quote || !saved || !fri.data.email || saving || sendingEmail}>
-                  <Mail size={16} />{sendingEmail ? "Enviando proforma…" : "Enviar proforma al cliente"}
+                  <Mail size={16} />{sendingEmail ? "Enviando proforma…" : "Enviar proforma PDF"}
                 </Button>
-                {!fri.data.email && <p className="mt-2 text-center text-[11px] leading-5 text-muted">La solicitud FRI no tiene correo; no se puede enviar la proforma.</p>}
-                {quote && !saved && fri.data.email && <p className="mt-2 text-center text-[11px] leading-5 text-muted">Guarda los cambios antes de enviar la proforma.</p>}
-                <p className="mt-2 text-center text-[11px] leading-5 text-muted">Las tarifas base no se modifican desde esta pantalla.</p>
+                {fri.data.email ? <p className="mt-3 text-center text-xs leading-5 text-muted">Se enviará al cliente a <span className="font-medium text-foreground">{fri.data.email}</span>.</p> : <p className="mt-3 text-center text-xs leading-5 text-muted">El FRI no tiene correo registrado; no se puede enviar la proforma.</p>}
+                <p className="mt-3 text-center text-xs leading-5 text-muted">Los ajustes de esta cotización no cambian las tarifas base.</p>
               </div>
             </aside>
           </form>
@@ -264,8 +323,16 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section><h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3><div className="space-y-2">{children}</div></section>;
+function BreakdownGroup({ title, total, children }: { title: string; total: number; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-border px-3.5 py-3">
+      <div className="flex items-center justify-between gap-3 text-sm font-medium">
+        <h3>{title}</h3>
+        <span className="shrink-0 tabular-nums text-muted">{usd(total)}</span>
+      </div>
+      <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">{children}</div>
+    </section>
+  );
 }
 function Row({ label, value, strong, dashOnZero = true, customValue }: { label: string; value?: number; strong?: boolean; dashOnZero?: boolean; customValue?: string }) {
   const display = customValue ?? (value === undefined || (dashOnZero && !value) ? "—" : usd(value));

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Mail, RefreshCw, Send, ShieldCheck } from "lucide-react";
+import { LoaderCircle, Mail, RefreshCw, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PanelAccess } from "@/features/panel/panel-access";
 import { getEmailStatus, sendTestEmail, type EmailStatus } from "@/features/email/api";
 
@@ -61,18 +62,18 @@ export default function EmailSettingsPage() {
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary"><Mail size={20} aria-hidden /></span>
             <div>
               <h2 className="font-semibold text-navy">Conexión con Resend</h2>
-              <p className="mt-1 text-sm text-muted">{loading ? "Consultando los secretos de Supabase…" : status?.configured ? "Las credenciales y el remitente están configurados." : "Falta configurar la API key y el remitente en Supabase."}</p>
+              <p className="mt-1 text-sm text-muted">{loading ? <Skeleton className="h-4 w-72 max-w-[65vw]" /> : status?.configured ? "Las credenciales y el remitente están configurados." : "Falta configurar la API key y el remitente en Supabase."}</p>
               {status?.sender && <p className="mt-2 text-sm"><span className="text-muted">Remitente:</span> <span className="font-medium text-navy">{status.sender}</span></p>}
             </div>
           </div>
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${status?.configured ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}>
-            {loading ? "Consultando" : status?.configured ? "Configurado" : "Pendiente"}
+            {loading ? <Skeleton className="h-4 w-20" /> : status?.configured ? "Configurado" : "Pendiente"}
           </span>
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <p className="text-xs text-muted">Se enviará al correo de tu cuenta de vendedor: {status?.testRecipient || "no disponible"}.</p>
           <Button onClick={() => void testEmail()} disabled={!status?.configured || sending || loading}>
-            <Send size={15} aria-hidden />{sending ? "Enviando…" : "Enviar correo de prueba"}
+            {sending ? <LoaderCircle size={15} className="animate-spin" aria-hidden /> : <Send size={15} aria-hidden />}{sending ? "Enviando…" : "Enviar correo de prueba"}
           </Button>
         </div>
       </section>

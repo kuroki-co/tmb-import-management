@@ -1,0 +1,5 @@
+import { LoginLoadingSkeleton } from "@/components/ui/loading-skeletons";
+
+export default function Loading() {
+  return <LoginLoadingSkeleton />;
+}

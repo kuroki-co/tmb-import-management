@@ -14,7 +14,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors motion-reduce:transition-none ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition-colors motion-reduce:transition-none ${variants[variant]} ${className}`}
       {...props}
     />
   );

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { login } from "../api";
@@ -94,8 +94,7 @@ export function LoginForm() {
         </p>
       )}
       <Button className="w-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Ingresando…" : "Ingresar al panel"}
-        <ArrowRight size={17} />
+        {isSubmitting ? <><LoaderCircle size={17} className="animate-spin" aria-hidden />Ingresando…</> : <>Ingresar al panel<ArrowRight size={17} /></>}
       </Button>
       <p className="text-center text-xs leading-5 text-muted">
         Acceso exclusivo para el equipo de TMB.

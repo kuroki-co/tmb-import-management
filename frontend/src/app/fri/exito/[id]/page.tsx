@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { FriDetails } from "@/features/fri/components/fri-details";
+import { ReceiptLoadingSkeleton } from "@/components/ui/loading-skeletons";
 async function Receipt({
   params,
   searchParams,
@@ -22,7 +23,7 @@ export default function ReceiptPage({
   searchParams: Promise<{ email?: string }>;
 }) {
   return (
-    <Suspense fallback={<p>Cargando…</p>}>
+    <Suspense fallback={<ReceiptLoadingSkeleton />}>
       <Receipt params={params} searchParams={searchParams} />
     </Suspense>
   );

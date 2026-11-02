@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Field, inputClass } from "@/components/ui/field";
 import {
   catalogVehicleName,
@@ -214,7 +215,16 @@ export function CatalogVehiclePicker({
         </p>
       )}
 
-      {(preparingIndex || loading) && <p role="status" className="mt-2 text-xs text-muted">{preparingIndex ? "Preparando catálogo…" : "Buscando…"}</p>}
+      {(preparingIndex || loading) && <>
+        <p role="status" className="sr-only">{preparingIndex ? "Preparando catálogo" : "Buscando vehículos"}</p>
+        {open && <div aria-hidden className="absolute left-0 right-0 top-full z-30 mt-1 space-y-3 rounded-lg border border-border bg-white p-4 shadow-lg">
+          {Array.from({ length: 3 }, (_, index) => <div key={index} className="flex items-center gap-3">
+            <Skeleton className="h-9 w-9 shrink-0 rounded-md" />
+            <div className="flex-1 space-y-2"><Skeleton className="h-4 w-36 max-w-full" /><Skeleton className="h-3 w-24" /></div>
+            <Skeleton className="h-4 w-16" />
+          </div>)}
+        </div>}
+      </>}
       {error && <p role="alert" className="mt-2 text-xs text-danger">{error}</p>}
       {open && !preparingIndex && !loading && term.length >= 2 && visibleItems.length === 0 && !isSelected && (
         <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-border bg-white p-4 shadow-lg">

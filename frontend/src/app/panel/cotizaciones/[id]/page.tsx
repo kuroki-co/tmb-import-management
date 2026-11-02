@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { PanelAccess } from "@/features/panel/panel-access";
 import { QuotationEditor } from "@/features/quotation/components/quotation-editor";
+import { QuotationLoadingSkeleton } from "@/components/ui/loading-skeletons";
 
 async function Editor({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,7 +18,7 @@ export default function QuotationPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<p className="text-sm text-muted">Cargando cotización…</p>}>
+    <Suspense fallback={<QuotationLoadingSkeleton />}>
       <Editor params={params} />
     </Suspense>
   );
