@@ -21,10 +21,12 @@ export function FriDetails({
   id,
   receipt = false,
   emailStatus,
+  automaticQuoteStatus,
 }: {
   id: string;
   receipt?: boolean;
   emailStatus?: "sent" | "failed" | "not_provided" | "not_configured";
+  automaticQuoteStatus?: "sent" | "failed" | "not_provided" | "not_configured" | "manual" | "already_processed" | "sending";
 }) {
   const [fri, setFri] = useState<Fri | null>(null);
   const [pdf, setPdf] = useState("");
@@ -152,7 +154,13 @@ export function FriDetails({
           <p className="mt-2 text-sm text-muted">
             {receipt
               ? fri
-                ? "Tu requerimiento está registrado. El equipo de TMB revisará la información para investigar las opciones de importación."
+                ? automaticQuoteStatus === "sent"
+                  ? "Tu requerimiento y la proforma referencial están listos. También los enviamos a tu correo."
+                  : automaticQuoteStatus === "manual"
+                    ? "Tu requerimiento está registrado. La vendedora completará los datos de cotización que faltan."
+                    : automaticQuoteStatus === "failed"
+                      ? "Tu requerimiento y la proforma están registrados, pero no se pudo completar el envío por correo."
+                      : "Tu requerimiento está registrado. El equipo de TMB revisará la información y preparará los siguientes pasos."
                 : error
                   ? "No pudimos consultar la ficha. Revisa el mensaje e inténtalo de nuevo."
                   : "Estamos consultando el registro de tu requerimiento."
@@ -221,14 +229,43 @@ export function FriDetails({
       )}
       {fri && (
         <>
-          {receipt && emailStatus === "sent" && (
+          {receipt && automaticQuoteStatus === "sent" && (
             <p role="status" className="mb-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-              Enviamos el FRI en PDF al correo que indicaste.
+              Generamos la proforma referencial automáticamente. Enviamos el FRI y la proforma en PDF al correo que indicaste.
             </p>
           )}
-          {receipt && (emailStatus === "failed" || emailStatus === "not_configured") && (
-            <p role="status" className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              La solicitud quedó registrada, pero no se pudo enviar el correo. Puedes descargar el PDF desde esta página.
+          {receipt && automaticQuoteStatus === "failed" && (
+            <p role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              La proforma ya está generada y puedes descargarla aquí, pero no se pudo enviar el correo. El equipo TMB podrá reenviarla desde el panel.
+            </p>
+          )}
+          {receipt && automaticQuoteStatus === "not_provided" && quoteAvailable && (
+            <p role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              Generamos la proforma referencial. Puedes descargarla desde esta página; no se envió por correo porque no indicaste uno.
+            </p>
+          )}
+          {receipt && automaticQuoteStatus === "not_configured" && (
+            <p role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              Generamos la proforma referencial, pero el correo no está disponible ahora. Puedes descargarla aquí.
+            </p>
+          )}
+          {receipt && automaticQuoteStatus === "manual" && (
+            <p role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              {emailStatus === "sent"
+                ? "Enviamos el FRI en PDF. La vendedora completará la cotización y te enviará la proforma."
+                : emailStatus === "failed" || emailStatus === "not_configured"
+                  ? "La solicitud está registrada. La vendedora completará la cotización y el equipo revisará el envío del correo."
+                  : "La solicitud está registrada. La vendedora completará la cotización y te enviará la proforma."}
+            </p>
+          )}
+          {receipt && automaticQuoteStatus === "already_processed" && (
+            <p role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              Esta solicitud ya había sido procesada. No enviamos un segundo correo.
+            </p>
+          )}
+          {receipt && automaticQuoteStatus === "sending" && (
+            <p role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              Tu proforma ya está generada y el envío del correo está en proceso.
             </p>
           )}
           {quoteError && (

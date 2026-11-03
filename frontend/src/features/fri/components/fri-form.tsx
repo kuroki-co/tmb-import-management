@@ -524,7 +524,9 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       rememberReceipt(receipt.id, receipt.receiptToken);
       setRegistered(true);
       clearDraft();
-      router.push(`/fri/exito/${receipt.id}?email=${receipt.emailStatus}`);
+      router.push(
+        `/fri/exito/${receipt.id}?email=${receipt.emailStatus}&quote=${receipt.automaticQuoteStatus}`,
+      );
     } catch (e) {
       sendingRef.current = false;
       setError(

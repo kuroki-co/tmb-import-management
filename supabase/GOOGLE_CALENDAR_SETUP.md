@@ -6,6 +6,11 @@ La aplicación usa una cuenta Google del equipo TMB como calendario principal. E
 
 1. Crea o selecciona un proyecto de Google Cloud y habilita **Google Calendar API**.
 2. Configura la pantalla de consentimiento OAuth. Mientras la aplicación siga en pruebas, añade la cuenta de TMB como usuario de prueba.
+   En **Acceso a los datos**, agrega estos permisos que usa la integración:
+
+   - `https://www.googleapis.com/auth/calendar.events` para crear eventos.
+   - `https://www.googleapis.com/auth/calendar.events.freebusy` para consultar disponibilidad.
+   - `https://www.googleapis.com/auth/userinfo.email` para identificar la cuenta conectada.
 3. Crea un cliente OAuth de tipo **Aplicación web**.
 4. En **URI de redirección autorizados**, añade exactamente:
 

@@ -63,5 +63,14 @@ export const receiptSchema = z.object({
   id: z.string(),
   receiptToken: z.string(),
   emailStatus: z.enum(["sent", "failed", "not_provided", "not_configured"]),
+  automaticQuoteStatus: z.enum([
+    "sent",
+    "failed",
+    "not_provided",
+    "not_configured",
+    "manual",
+    "already_processed",
+    "sending",
+  ]).default("manual"),
 });
 export type Fri = z.infer<typeof friRecordSchema>;

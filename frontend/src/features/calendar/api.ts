@@ -10,6 +10,13 @@ const slotSchema = z.object({
   slots: z.array(z.string()),
   timeZone: z.string().optional(),
 });
+const bookingStatusSchema = z.object({
+  appointment: z.object({
+    startsAt: z.string(),
+    endsAt: z.string(),
+    status: z.enum(["pending", "confirmed"]),
+  }).nullable(),
+});
 const agendaSchema = z.object({
   connection: connectionSchema,
   appointments: z.array(z.object({
@@ -31,6 +38,13 @@ export async function getCalendarSlots(day: string) {
 export async function bookCalendarSlot(id: string, token: string, startsAt: string) {
   return z.object({ success: z.literal(true), startsAt: z.string(), endsAt: z.string() })
     .parse(await callFriFunction({ action: "calendar-book", id, token, startsAt }));
+}
+export async function getCalendarBookingStatus(id: string, token: string) {
+  return bookingStatusSchema.parse(await callFriFunction({
+    action: "calendar-booking-status",
+    id,
+    token,
+  }));
 }
 export async function getCalendarAgenda() {
   return agendaSchema.parse(await callFriFunction({ action: "calendar-agenda" }, true));

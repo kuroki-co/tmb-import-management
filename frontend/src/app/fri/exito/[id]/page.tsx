@@ -6,21 +6,39 @@ async function Receipt({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; quote?: string }>;
 }) {
   const { id } = await params;
-  const { email } = await searchParams;
+  const { email, quote } = await searchParams;
   const emailStatus = ["sent", "failed", "not_provided", "not_configured"].includes(email || "")
     ? email as "sent" | "failed" | "not_provided" | "not_configured"
     : undefined;
-  return <FriDetails id={id} receipt emailStatus={emailStatus} />;
+  const automaticQuoteStatus = [
+    "sent",
+    "failed",
+    "not_provided",
+    "not_configured",
+    "manual",
+    "already_processed",
+    "sending",
+  ].includes(quote || "")
+    ? quote as "sent" | "failed" | "not_provided" | "not_configured" | "manual" | "already_processed" | "sending"
+    : undefined;
+  return (
+    <FriDetails
+      id={id}
+      receipt
+      emailStatus={emailStatus}
+      automaticQuoteStatus={automaticQuoteStatus}
+    />
+  );
 }
 export default function ReceiptPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; quote?: string }>;
 }) {
   return (
     <Suspense fallback={<ReceiptLoadingSkeleton />}>

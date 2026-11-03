@@ -245,48 +245,34 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">Resumen de cotización</h2>
-                  <p className="mt-1 text-sm text-muted">Se actualiza al editar los costos</p>
+                  <p className="mt-1 text-sm text-muted">Importes clave de la proforma</p>
                 </div>
                 <span className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted">USD</span>
               </div>
               {preview && hasRequiredAmounts ? <div className="mt-5">
                 <div className="rounded-lg bg-primary px-5 py-5 text-white">
-                  <p className="text-xs font-medium text-white/75">TOTAL ESTIMADO</p>
+                  <p className="text-xs font-medium text-white/75">TOTAL REFERENCIAL</p>
                   <p className="mt-2 text-3xl font-semibold tabular-nums">{usd(preview.totalUsd)}</p>
-                  <p className="mt-2 text-xs leading-5 text-white/75">Cálculo basado en los parámetros de cotización vigentes.</p>
+                  <p className="mt-2 text-xs leading-5 text-white/75">Sujeto a confirmación de precios, impuestos y gastos.</p>
                 </div>
                 <div className="mt-4 divide-y divide-border rounded-lg border border-border px-3.5">
                   {[
                     { label: "FOB", amount: preview.fobUsd },
                     { label: "Flete internacional", amount: preview.freightUsd },
-                    { label: "Seguro", amount: preview.insuranceUsd },
                     {
-                      label: `Impuestos ${fmt.format((input.adjustments.perceptionRate ?? settings.perceptionRate) * 100)}% perc.`,
-                      amount: preview.perceptionUsd,
+                      label: "Otros costos e impuestos",
+                      amount: preview.totalUsd - preview.fobUsd - preview.freightUsd,
                     },
-                    {
-                      label: "Aduanas",
-                      amount: preview.localSubtotalUsd,
-                      hint: "Costos locales e IGV",
-                    },
-                    {
-                      label: "Otros gastos",
-                      amount: preview.contentSubtotalUsd,
-                      hint: "Tributos y despacho de importación",
-                    },
-                  ].map(({ label, amount, hint }) => (
+                  ].map(({ label, amount }) => (
                     <div key={label} className="flex items-center justify-between gap-3 py-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{label}</p>
-                        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
-                      </div>
+                      <p className="font-medium text-foreground">{label}</p>
                       <span className="shrink-0 tabular-nums text-foreground">{amount ? usd(amount) : "—"}</span>
                     </div>
                   ))}
                 </div>
                 <details className="group mt-3 rounded-lg border border-border px-3.5 py-3">
                   <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium marker:hidden">
-                    <span>Ver desglose del cálculo</span>
+                    <span>Ver desglose completo</span>
                     <ChevronDown size={15} className="shrink-0 text-muted transition-transform group-open:rotate-180" />
                   </summary>
                   <div className="mt-3 space-y-3 border-t border-border pt-3">

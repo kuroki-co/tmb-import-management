@@ -1,16 +1,13 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, CheckCircle2, Clock3, ExternalLink, RefreshCw } from "lucide-react";
+import { CalendarDays, ExternalLink, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PanelAccess } from "@/features/panel/panel-access";
 import { getCalendarAgenda, getGoogleConnectUrl, type AgendaData } from "@/features/calendar/api";
-
-const dateTime = (value: string) => new Intl.DateTimeFormat("es-PE", {
-  timeZone: "America/Lima", dateStyle: "full", timeStyle: "short",
-}).format(new Date(value));
+import { AppointmentMonthCalendar } from "@/features/calendar/appointment-month-calendar";
 
 export default function AgendaPage() {
   const search = useSearchParams();
@@ -64,31 +61,12 @@ export default function AgendaPage() {
         {loading && !data ? <Skeleton className="ml-auto h-7 w-32" /> : !data?.connection && <span className="ml-auto rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">Pendiente de conexión</span>}
       </section>
 
-      <section className="overflow-hidden tmb-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-          <div><h2 className="font-semibold text-navy">Citas agendadas</h2><p className="mt-1 text-xs text-muted">La hora se muestra en America/Lima</p></div>
-          <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-muted">{data?.appointments.length ?? 0} citas</span>
-        </div>
-        {loading && !data ? <div role="status" aria-label="Cargando citas" aria-busy="true" className="divide-y divide-border"><span className="sr-only">Cargando citas</span>{Array.from({ length: 4 }, (_, index) => <div key={index} aria-hidden className="flex items-center gap-4 px-5 py-4"><Skeleton className="h-10 w-10" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-56" /><Skeleton className="h-3 w-40" /></div><Skeleton className="h-7 w-24" /></div>)}</div> : !data?.appointments.length ? (
-          <div className="px-5 py-14 text-center">
-            <CalendarDays size={28} className="mx-auto text-muted" aria-hidden />
-            <p className="mt-3 text-sm font-semibold text-navy">Todavía no hay citas</p>
-            <p className="mt-1 text-sm text-muted">Cuando un cliente reserve desde la confirmación del FRI, aparecerá aquí.</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {data.appointments.map((appointment) => <li key={appointment.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary"><Clock3 size={18} aria-hidden /></span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-navy">{dateTime(appointment.starts_at)}</p>
-                <p className="mt-1 text-sm text-foreground">{appointment.client_name} <span className="text-muted">· {appointment.vehicle}</span></p>
-                <p className="mt-1 text-xs text-muted">Solicitud {appointment.request_code} · 30 minutos</p>
-              </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-800"><CheckCircle2 size={14} aria-hidden />Agendada</span>
-            </li>)}
-          </ul>
-        )}
-      </section>
+      {loading && !data ? (
+        <section role="status" aria-label="Cargando calendario" aria-busy="true" className="grid overflow-hidden rounded-xl border border-border bg-white xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div aria-hidden className="space-y-5 p-5 md:p-6"><div className="flex justify-between"><Skeleton className="h-8 w-40" /><Skeleton className="h-9 w-28" /></div><div className="grid grid-cols-7 gap-2">{Array.from({ length: 42 }, (_, index) => <Skeleton key={index} className="h-20 w-full rounded-lg" />)}</div></div>
+          <div aria-hidden className="border-t border-border p-5 xl:border-l xl:border-t-0"><Skeleton className="mb-5 h-5 w-36" />{Array.from({ length: 2 }, (_, index) => <Skeleton key={index} className="mb-3 h-28 w-full rounded-xl" />)}</div>
+        </section>
+      ) : data ? <AppointmentMonthCalendar appointments={data.appointments} /> : null}
     </div>
   </PanelAccess>;
 }

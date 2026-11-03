@@ -21,6 +21,7 @@ import {
   encryptRefreshToken,
   googleRequest,
 } from "../_shared/google-calendar.ts";
+import { renderTmbEmail } from "../_shared/email-template.ts";
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({
@@ -68,6 +69,11 @@ const requestSchema = z.discriminatedUnion("action", [
     id: z.uuid(),
     token: z.string().regex(/^[a-f0-9]{64}$/),
     startsAt: z.string().datetime({ offset: true }),
+  }).strict(),
+  z.object({
+    action: z.literal("calendar-booking-status"),
+    id: z.uuid(),
+    token: z.string().regex(/^[a-f0-9]{64}$/),
   }).strict(),
   z.object({
     action: z.literal("quotation-settings-update"),
@@ -326,24 +332,225 @@ export async function handler(req: Request): Promise<Response> {
       if (error) throw error;
       let emailStatus: "sent" | "failed" | "not_provided" | "not_configured" =
         "not_provided";
+      let automaticQuoteStatus:
+        | "sent"
+        | "failed"
+        | "not_provided"
+        | "not_configured"
+        | "manual"
+        | "already_processed"
+        | "sending" = "manual";
       const recipient = validated.data.email?.trim() || "";
-      if (recipient) {
-        const apiKey = Deno.env.get("RESEND_API_KEY");
-        const sender = Deno.env.get("RESEND_FROM_EMAIL")?.trim();
+      const { data: request, error: requestError } = await admin
+        .from("tmb_fri_requests")
+        .select("id,created_at,code,status,data")
+        .eq("id", data)
+        .maybeSingle();
+      if (requestError || !request) throw new Error("FRI record unavailable");
+      let fri = map(request);
+      const catalogReference = fri.data.catalogReference;
+      const automaticInput = catalogReference?.price !== null &&
+          catalogReference?.price !== undefined &&
+          Number.isFinite(catalogReference.price) && catalogReference.price > 0 &&
+          catalogReference.currency.toUpperCase() === "USD" &&
+          (fri.data.vehicleType === "Automóvil" || fri.data.vehicleType === "Camión")
+        ? quotationInputSchema.safeParse({
+          fobUsd: catalogReference.price,
+          freightUsd: fri.data.vehicleType === "Camión" ? 9000 : 3000,
+          adjustments: {},
+        })
+        : null;
+      let createdAutomaticQuotation: {
+        input: ReturnType<typeof quotationInputSchema.parse>;
+        settings: ReturnType<typeof quotationSettingsSchema.parse>;
+        calculation: ReturnType<typeof calculateQuotation>;
+        updatedAt: string;
+      } | null = null;
+      let existingQuotation = false;
+
+      if (automaticInput?.success) {
+        try {
+          const { data: savedQuote, error: savedQuoteError } = await admin
+            .from("tmb_quotations")
+            .select("origin,automatic_email_status")
+            .eq("request_id", data)
+            .maybeSingle();
+          if (savedQuoteError) throw savedQuoteError;
+          if (savedQuote) {
+            existingQuotation = true;
+            automaticQuoteStatus = savedQuote.origin === "automatic"
+              ? (savedQuote.automatic_email_status ?? "sending") as typeof automaticQuoteStatus
+              : "already_processed";
+            if (savedQuote.origin === "automatic") {
+              emailStatus = savedQuote.automatic_email_status === "sent"
+                ? "sent"
+                : savedQuote.automatic_email_status === "failed"
+                ? "failed"
+                : savedQuote.automatic_email_status === "not_configured"
+                ? "not_configured"
+                : savedQuote.automatic_email_status === "not_provided"
+                ? "not_provided"
+                : "not_provided";
+            }
+          } else {
+            const { data: settingsRow, error: settingsError } = await admin
+              .from("tmb_quotation_settings")
+              .select("config")
+              .eq("id", 1)
+              .maybeSingle();
+            if (settingsError || !settingsRow) throw settingsError || new Error("Quotation settings are missing");
+            const settings = quotationSettingsSchema.parse(settingsRow.config);
+            const input = automaticInput.data;
+            const calculation = calculateQuotation(input, settings);
+            const updatedAt = new Date().toISOString();
+            const initialEmailStatus = recipient ? "sending" : "not_provided";
+            const { data: insertedQuote, error: insertQuoteError } = await admin
+              .from("tmb_quotations")
+              .insert({
+                request_id: data,
+                seller_id: null,
+                origin: "automatic",
+                automatic_email_status: initialEmailStatus,
+                input,
+                settings_snapshot: settings,
+                calculation,
+                updated_at: updatedAt,
+              })
+              .select("id")
+              .single();
+            if (insertQuoteError) throw insertQuoteError;
+            if (!insertedQuote) throw new Error("Automatic quotation was not saved");
+            createdAutomaticQuotation = { input, settings, calculation, updatedAt };
+            automaticQuoteStatus = initialEmailStatus;
+            const { data: updatedFri, error: statusError } = await admin
+              .from("tmb_fri_requests")
+              .update({ status: "Cotizado" })
+              .eq("id", data)
+              .in("status", ["Pendiente a revisar", "En revisión"])
+              .select("id,created_at,code,status,data")
+              .maybeSingle();
+            if (statusError) throw statusError;
+            if (updatedFri) fri = map(updatedFri);
+          }
+        } catch {
+          // The FRI remains valid; incomplete settings or a quote persistence problem
+          // leave it for the seller's normal quotation workflow.
+          if (!existingQuotation && !createdAutomaticQuotation) {
+            const { data: racedQuote, error: racedQuoteError } = await admin
+              .from("tmb_quotations")
+              .select("origin,automatic_email_status")
+              .eq("request_id", data)
+              .maybeSingle();
+            if (!racedQuoteError && racedQuote) {
+              existingQuotation = true;
+              automaticQuoteStatus = racedQuote.origin === "automatic"
+                ? (racedQuote.automatic_email_status ?? "sending") as typeof automaticQuoteStatus
+                : "already_processed";
+              if (racedQuote.origin === "automatic") {
+                emailStatus = racedQuote.automatic_email_status === "sent"
+                  ? "sent"
+                  : racedQuote.automatic_email_status === "failed"
+                  ? "failed"
+                  : racedQuote.automatic_email_status === "not_configured"
+                  ? "not_configured"
+                  : "not_provided";
+              }
+            } else {
+              automaticQuoteStatus = "manual";
+            }
+          }
+        }
+      }
+
+      const apiKey = Deno.env.get("RESEND_API_KEY");
+      const sender = Deno.env.get("RESEND_FROM_EMAIL")?.trim();
+      if (createdAutomaticQuotation) {
+        if (!recipient) {
+          emailStatus = "not_provided";
+          automaticQuoteStatus = "not_provided";
+        } else if (!apiKey || !sender) {
+          emailStatus = "not_configured";
+          automaticQuoteStatus = "not_configured";
+          await admin.from("tmb_quotations").update({
+            automatic_email_status: "not_configured",
+          }).eq("request_id", data).eq("origin", "automatic");
+        } else {
+          try {
+            const { QuotationPdfService } = await import("../_shared/quotation-pdf.ts");
+            const quotePdf = await new QuotationPdfService().generate(fri, {
+              ...createdAutomaticQuotation,
+            });
+            const { PdfService } = await import("../_shared/pdf.ts");
+            const friPdf = await new PdfService().generate(fri);
+            const safeCode = fri.code.replace(/[^a-zA-Z0-9-]/g, "-");
+            const email = renderTmbEmail({
+              preheader: `Tu proforma referencial para ${fri.code} está lista.`,
+              eyebrow: "COTIZACIÓN COMERCIAL",
+              title: "Tu proforma referencial está lista",
+              greeting: fri.data.name ? `Hola ${fri.data.name},` : undefined,
+              paragraphs: [
+                "Con los datos del vehículo seleccionado generamos una cotización referencial y adjuntamos también tu Ficha de Requerimiento de Importación.",
+                "El FOB y el flete son valores referenciales; precios, impuestos y gastos pueden variar y requieren confirmación comercial.",
+              ],
+              reference: { label: "Código de solicitud", value: fri.code },
+              attachments: [
+                "Proforma referencial (PDF)",
+                "Ficha de Requerimiento de Importación (FRI) (PDF)",
+              ],
+            });
+            const response = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "Idempotency-Key": `tmb-auto-quotation-${await hash(`${data}:${createdAutomaticQuotation.updatedAt}`)}`,
+              },
+              body: JSON.stringify({
+                from: sender,
+                to: [recipient],
+                subject: `Tu proforma referencial está lista · ${fri.code}`,
+                html: email.html,
+                text: email.text,
+                attachments: [{
+                  filename: `PROFORMA-${safeCode}.pdf`,
+                  content: quotePdf.toString("base64"),
+                }, {
+                  filename: `FRI-${safeCode}.pdf`,
+                  content: friPdf.toString("base64"),
+                }],
+              }),
+            });
+            emailStatus = response.ok ? "sent" : "failed";
+            automaticQuoteStatus = response.ok ? "sent" : "failed";
+            if (!response.ok) await response.text().catch(() => "");
+          } catch {
+            emailStatus = "failed";
+            automaticQuoteStatus = "failed";
+          }
+          await admin.from("tmb_quotations").update({
+            automatic_email_status: automaticQuoteStatus,
+          }).eq("request_id", data).eq("origin", "automatic");
+        }
+      } else if (recipient && !existingQuotation) {
         if (!apiKey || !sender) {
           emailStatus = "not_configured";
         } else {
           try {
-            const { data: request, error: requestError } = await admin
-              .from("tmb_fri_requests")
-              .select("id,created_at,code,status,data")
-              .eq("id", data)
-              .maybeSingle();
-            if (requestError || !request) throw new Error("FRI record unavailable");
-            const fri = map(request);
             const { PdfService } = await import("../_shared/pdf.ts");
             const pdf = await new PdfService().generate(fri);
             const safeCode = fri.code.replace(/[^a-zA-Z0-9-]/g, "-");
+            const email = renderTmbEmail({
+              preheader: `Recibimos tu solicitud ${fri.code}. Adjuntamos tu ficha FRI en PDF.`,
+              eyebrow: "FICHA DE REQUERIMIENTO",
+              title: "Recibimos tu solicitud",
+              greeting: fri.data.name ? `Hola ${fri.data.name},` : undefined,
+              paragraphs: [
+                "Adjuntamos una copia en PDF de tu Ficha de Requerimiento de Importación.",
+                "El equipo TMB revisará la información y preparará una cotización referencial.",
+              ],
+              reference: { label: "Código de solicitud", value: fri.code },
+              attachments: ["Ficha de Requerimiento de Importación (FRI)"],
+            });
             const response = await fetch("https://api.resend.com/emails", {
               method: "POST",
               headers: {
@@ -354,9 +561,9 @@ export async function handler(req: Request): Promise<Response> {
               body: JSON.stringify({
                 from: sender,
                 to: [recipient],
-                subject: `Solicitud FRI recibida · ${fri.code}`,
-                html: `<div style="font-family:Arial,sans-serif;color:#12385b"><h1 style="font-size:20px">Recibimos tu solicitud</h1><p>Adjuntamos el PDF de tu ficha de requerimiento de importación.</p><p>Código de solicitud: <strong>${fri.code}</strong></p><p>El equipo de TMB revisará la información y preparará una cotización referencial.</p></div>`,
-                text: `Recibimos tu solicitud FRI. Adjuntamos el PDF de tu ficha. Código de solicitud: ${fri.code}. El equipo de TMB revisará la información y preparará una cotización referencial.`,
+                subject: `Recibimos tu solicitud · ${fri.code}`,
+                html: email.html,
+                text: email.text,
                 attachments: [{
                   filename: `FRI-${safeCode}.pdf`,
                   content: pdf.toString("base64"),
@@ -374,6 +581,7 @@ export async function handler(req: Request): Promise<Response> {
         id: data,
         receiptToken: body.receiptToken,
         emailStatus,
+        automaticQuoteStatus,
       }, 201);
     }
     if (body.action === "calendar-slots") {
@@ -485,6 +693,29 @@ export async function handler(req: Request): Promise<Response> {
         throw error;
       }
     }
+    if (body.action === "calendar-booking-status") {
+      const { data: rows, error: receiptError } = await admin.rpc("tmb_read_receipt", {
+        p_id: body.id,
+        p_token: body.token,
+      });
+      if (receiptError) throw receiptError;
+      if (!rows?.[0]) throw new HttpError(404, "No encontramos la solicitud FRI");
+      const { data: appointment, error: appointmentError } = await admin
+        .from("tmb_appointments")
+        .select("starts_at,ends_at,status")
+        .eq("request_id", body.id)
+        .maybeSingle();
+      if (appointmentError) throw appointmentError;
+      return json({
+        appointment: appointment
+          ? {
+            startsAt: appointment.starts_at,
+            endsAt: appointment.ends_at,
+            status: appointment.status,
+          }
+          : null,
+      });
+    }
     let record: Fri | undefined;
     const token = "token" in body ? body.token : undefined;
     if (
@@ -585,7 +816,7 @@ export async function handler(req: Request): Promise<Response> {
           client_id: clientId,
           redirect_uri: redirectUri,
           response_type: "code",
-          scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email",
+          scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.events.freebusy https://www.googleapis.com/auth/userinfo.email",
           access_type: "offline",
           prompt: "consent",
           state,
@@ -621,6 +852,13 @@ export async function handler(req: Request): Promise<Response> {
         if (!recipient) {
           throw new HttpError(400, "La cuenta del vendedor no tiene correo para recibir la prueba.");
         }
+        const email = renderTmbEmail({
+          preheader: "La conexión de correo de TMB está lista para enviar mensajes.",
+          eyebrow: "SISTEMA DE CORREO",
+          title: "Conexión de correo lista",
+          greeting: "Hola,",
+          paragraphs: ["Esta es una prueba de envío. TMB puede enviar correos desde Resend correctamente."],
+        });
         let response: Response;
         try {
           response = await fetch("https://api.resend.com/emails", {
@@ -634,8 +872,8 @@ export async function handler(req: Request): Promise<Response> {
               from: sender,
               to: [recipient],
               subject: "Prueba de correo · TMB Importaciones",
-              html: "<div style=\"font-family:Arial,sans-serif;color:#12385b\"><h1 style=\"font-size:20px\">Conexión de correo lista</h1><p>Este mensaje confirma que TMB puede enviar correos desde Resend.</p></div>",
-              text: "Conexión de correo lista. Este mensaje confirma que TMB puede enviar correos desde Resend.",
+              html: email.html,
+              text: email.text,
             }),
           });
         } catch {
@@ -783,6 +1021,8 @@ export async function handler(req: Request): Promise<Response> {
         const { data, error } = await admin.from("tmb_quotations").upsert({
           request_id: body.id,
           seller_id: seller.id,
+          origin: "seller",
+          automatic_email_status: null,
           input: input.data,
           settings_snapshot: base,
           calculation,
@@ -843,7 +1083,25 @@ export async function handler(req: Request): Promise<Response> {
           calculation,
           updatedAt: quotation.updated_at,
         });
+        const { PdfService } = await import("../_shared/pdf.ts");
+        const friPdf = await new PdfService().generate(fri);
         const safeCode = fri.code.replace(/[^a-zA-Z0-9-]/g, "-");
+        const email = renderTmbEmail({
+          preheader: `Tu proforma referencial para la solicitud ${fri.code} está lista.`,
+          eyebrow: "COTIZACIÓN COMERCIAL",
+          title: "Tu cotización está lista",
+          greeting: fri.data.name ? `Hola ${fri.data.name},` : undefined,
+          paragraphs: [
+            "Adjuntamos la proforma referencial solicitada y una copia de tu Ficha de Requerimiento de Importación.",
+            "Si tienes alguna consulta sobre la cotización, responde a este correo y el equipo TMB te ayudará.",
+          ],
+          reference: { label: "Código de solicitud", value: fri.code },
+          attachments: [
+            "Proforma / cotización comercial (PDF)",
+            "Ficha de Requerimiento de Importación (FRI) (PDF)",
+          ],
+          notice: "Los precios, impuestos y gastos son referenciales y están sujetos a confirmación del proveedor; pueden variar.",
+        });
         let response: Response;
         try {
           response = await fetch("https://api.resend.com/emails", {
@@ -856,12 +1114,15 @@ export async function handler(req: Request): Promise<Response> {
             body: JSON.stringify({
               from: sender,
               to: [recipient.data],
-              subject: `Cotización comercial TMB · ${fri.code}`,
-              html: `<div style="font-family:Arial,sans-serif;color:#12385b"><h1 style="font-size:20px">Tu cotización está lista</h1><p>Adjuntamos la proforma referencial solicitada.</p><p>Solicitud: <strong>${fri.code}</strong></p><p>Los precios, impuestos y gastos están sujetos a confirmación del proveedor y pueden variar.</p><p>Saludos,<br/>TMB Importaciones</p></div>`,
-              text: `Tu cotización está lista. Adjuntamos la proforma referencial de la solicitud ${fri.code}. Los precios, impuestos y gastos están sujetos a confirmación del proveedor y pueden variar.\n\nTMB Importaciones`,
+              subject: `Tu cotización está lista · ${fri.code}`,
+              html: email.html,
+              text: email.text,
               attachments: [{
                 filename: `PROFORMA-${safeCode}.pdf`,
                 content: pdf.toString("base64"),
+              }, {
+                filename: `FRI-${safeCode}.pdf`,
+                content: friPdf.toString("base64"),
               }],
             }),
           });
