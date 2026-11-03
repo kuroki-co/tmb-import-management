@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { login } from "../api";
@@ -28,7 +28,12 @@ export function LoginForm() {
         setError("");
         try {
           await login(values.email, values.password);
-          router.replace("/panel/solicitudes");
+          const next = new URLSearchParams(window.location.search).get("next");
+          router.replace(
+            next === "/panel" || next?.startsWith("/panel/")
+              ? next
+              : "/panel/solicitudes",
+          );
         } catch (e) {
           setError(
             e instanceof Error ? e.message : "No se pudo iniciar sesión",
@@ -94,7 +99,14 @@ export function LoginForm() {
         </p>
       )}
       <Button className="w-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? <><LoaderCircle size={17} className="animate-spin" aria-hidden />Ingresando…</> : <>Ingresar al panel<ArrowRight size={17} /></>}
+        {isSubmitting ? (
+          <>
+            <LoaderCircle size={17} className="animate-spin" aria-hidden />
+            Ingresando…
+          </>
+        ) : (
+          "Ingresar al panel"
+        )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted">
         Acceso exclusivo para el equipo de TMB.

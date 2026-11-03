@@ -44,10 +44,15 @@ export async function currentSeller() {
     } catch (error) {
       if (
         error instanceof SupabaseApiError &&
-        (error.status === 401 || error.status === 403)
+        error.status === 401
       ) {
         await createClient().auth.signOut({ scope: "local" });
         return null;
+      }
+      if (error instanceof SupabaseApiError && error.status === 403) {
+        throw new Error(
+          "Tu sesión está activa, pero esta cuenta no tiene acceso al panel de TMB.",
+        );
       }
       throw error;
     }

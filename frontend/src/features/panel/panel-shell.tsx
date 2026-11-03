@@ -67,10 +67,12 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
         if (!user) router.replace("/login");
         else setSeller(user);
       })
-      .catch(() => {
+      .catch((cause) => {
         if (active)
           setError(
-            "No podemos conectar con el servidor. Inténtalo de nuevo en unos momentos.",
+            cause instanceof Error
+              ? cause.message
+              : "No podemos conectar con el servidor. Inténtalo de nuevo en unos momentos.",
           );
       });
     return () => {
