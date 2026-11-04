@@ -122,6 +122,7 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
     }
     setSaving(true);
     setError("");
+    setEmailNotice("");
     setSaved(false);
     try {
       const result = await saveQuotation(requestId, input);
@@ -129,6 +130,21 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
       setSettings(result.settings);
       setInput(result.input);
       setSaved(true);
+      if (fri.data.email) {
+        setSendingEmail(true);
+        try {
+          const email = await sendQuotationEmail(requestId);
+          setEmailNotice(`Cotización guardada y proforma enviada a ${email.recipient}.`);
+        } catch (cause) {
+          setError(
+            cause instanceof Error
+              ? `La cotización se guardó, pero no se pudo enviar la proforma: ${cause.message}`
+              : "La cotización se guardó, pero no se pudo enviar la proforma.",
+          );
+        } finally {
+          setSendingEmail(false);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la cotización");
     } finally {
@@ -316,13 +332,13 @@ export function QuotationEditor({ requestId }: { requestId: string }) {
                 {saved && <p role="status" className="mb-3 flex items-center gap-2 text-xs text-success"><Check size={15} />Guardada. La solicitud pasó a Cotizado.</p>}
                 {emailNotice && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-xs text-green-900">{emailNotice}</p>}
                 {quote && !saved && <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">Tienes cambios sin guardar. Guarda la cotización para conservarlos y habilitar el envío.</p>}
-                <Button className="w-full" type="submit" disabled={saving || !hasRequiredAmounts}><Save size={16} />{saving ? "Guardando cotización…" : quote ? "Guardar cambios" : "Guardar cotización"}</Button>
+                <Button className="w-full" type="submit" disabled={saving || sendingEmail || !hasRequiredAmounts || Boolean(quote && saved)}><Save size={16} />{saving ? sendingEmail ? "Guardando y enviando…" : "Guardando cotización…" : quote ? fri.data.email ? "Guardar cambios y enviar" : "Guardar cambios" : fri.data.email ? "Guardar y enviar proforma" : "Guardar cotización"}</Button>
                 <Button className="mt-2 w-full" type="button" variant="secondary" onClick={() => void downloadProforma()} disabled={!quote || !saved || saving || downloading}>
                   <Download size={16} />{downloading ? "Preparando proforma…" : "Descargar proforma"}
                 </Button>
                 {!saved && <p className="mt-2 text-center text-[11px] leading-5 text-muted">Guarda la cotización para descargar la proforma con los últimos cambios.</p>}
                 <Button className="mt-2 w-full" type="button" variant="secondary" onClick={() => void sendByEmail()} disabled={!quote || !saved || !fri.data.email || saving || sendingEmail}>
-                  <Mail size={16} />{sendingEmail ? "Enviando proforma…" : "Enviar proforma PDF"}
+                  <Mail size={16} />{sendingEmail ? "Enviando proforma…" : emailNotice ? "Reenviar proforma PDF" : "Enviar proforma PDF"}
                 </Button>
                 {fri.data.email ? <p className="mt-3 text-center text-xs leading-5 text-muted">Se enviará al cliente a <span className="font-medium text-foreground">{fri.data.email}</span>.</p> : <p className="mt-3 text-center text-xs leading-5 text-muted">El FRI no tiene correo registrado; no se puede enviar la proforma.</p>}
                 <p className="mt-3 text-center text-xs leading-5 text-muted">Los ajustes de esta cotización no cambian las tarifas base.</p>
