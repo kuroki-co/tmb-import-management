@@ -56,7 +56,6 @@ export class QuotationPdfService {
       doc.on("error", reject);
     });
     const navy = "#203864";
-    const green = "#29A64A";
     const ink = "#202936";
     const left = 34;
     const width = doc.page.width - left * 2;
@@ -105,8 +104,6 @@ export class QuotationPdfService {
 
     // Header follows the reference proforma: navy rule, company title, then two-column metadata.
     doc.rect(left, y, width, 8).fill(navy);
-    doc.rect(left + 14, y + 8, 88, 3).fill(green);
-    doc.rect(left + 98, y + 8, 58, 3).fill("#2098C8");
     y += 16;
     doc.font("Helvetica-Bold").fontSize(14).fillColor(navy)
       .text("TMB IMPORTACIONES E.I.R.L.", left, y, {
