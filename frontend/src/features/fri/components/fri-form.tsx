@@ -147,7 +147,17 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
   const catalogVehicleId = useWatch({ control, name: "catalogVehicleId" });
   const vehicleDraftValues = useWatch({
     control,
-    name: ["vehicleType", "brand", "model", "version", "year", "color"],
+    name: [
+      "vehicleType",
+      "brand",
+      "model",
+      "version",
+      "year",
+      "color",
+      "fuelGroup",
+      "fuelType",
+      "transmission",
+    ],
   });
   const fuelGroup = useWatch({ control, name: "fuelGroup" });
   const departmentSearchQuery = departmentEditing && departmentQuery === departmentValue
@@ -183,6 +193,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     setValue("model", vehicle.model.slice(0, 100), { shouldDirty: true });
     if (vehicle.variant) setValue("version", vehicle.variant.slice(0, 300), { shouldDirty: true });
     if (vehicle.year) setValue("year", vehicle.year, { shouldDirty: true });
+    if (vehicle.color) setValue("color", vehicle.color.slice(0, 80), { shouldDirty: true });
     const fuel = vehicle.fuel?.toLowerCase();
     setValue("fuelGroup", "", { shouldDirty: true });
     setValue("fuelType", "", { shouldDirty: true });
@@ -231,6 +242,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     label: string,
     required = false,
     type = "text",
+    locked = false,
   ) => (
     <Field
       key={name}
@@ -243,8 +255,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     >
       <input
         id={name}
-        className={inputClass}
+        className={`${inputClass} ${locked ? "cursor-not-allowed bg-background text-muted read-only:focus:border-border read-only:focus:ring-0" : ""}`}
         type={type}
+        readOnly={locked}
+        aria-readonly={locked || undefined}
+        title={locked ? "Dato completado desde el catálogo" : undefined}
         aria-invalid={!!errors[name]}
         aria-describedby={describedBy(name)}
         autoComplete={name === "mobile"
@@ -273,6 +288,7 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     required = true,
     optionLabels?: Record<string, string>,
     hint?: string,
+    locked = false,
   ) => (
     <Field
       label={label}
@@ -284,8 +300,11 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
     >
       <Select
         id={name}
-        className={inputClass}
-        disabled={name === "fuelType" && !fuelGroup}
+        className={`${inputClass} ${locked ? "pointer-events-none cursor-not-allowed bg-background text-muted" : ""}`}
+        disabled={(name === "fuelType" && !fuelGroup) || undefined}
+        tabIndex={locked ? -1 : undefined}
+        aria-disabled={locked || undefined}
+        title={locked ? "Dato completado desde el catálogo" : undefined}
         aria-invalid={!!errors[name]}
         aria-describedby={errors[name] ? `${name}-error` : undefined}
         {...register(
@@ -323,6 +342,10 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
       </Select>
     </Field>
   );
+  const catalogFieldLocked = (name: keyof FriFormValues) => {
+    const value = getValues(name);
+    return Boolean(catalogVehicleId && value !== undefined && value !== "");
+  };
   const chooseDepartment = (department: (typeof departments)[number]) => {
     setValue("department", department, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
     setDepartmentQuery("");
@@ -775,12 +798,17 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
           {step === 1 && showVehicleDetails && (
             <section className="grid gap-x-6 gap-y-5 border-b border-border pb-5 md:col-span-2 md:grid-cols-2">
               <FormSectionHeading icon={CarFront}>Datos del vehículo</FormSectionHeading>
+              {catalogVehicleId && (
+                <p className="-mt-3 text-xs leading-5 text-muted md:col-span-2">
+                  Los datos completados desde el catálogo están bloqueados. Para editarlos, cambia la búsqueda y elige «No encuentro mi vehículo».
+                </p>
+              )}
               {select("vehicleType", "Tipo de vehículo", vehicleTypes)}
-              {field("brand", "Marca", true)}
-              {field("model", "Modelo", true)}
-              {field("version", "Versión")}
-              {field("year", "Año", true, "number")}
-              {field("color", "Color")}
+              {field("brand", "Marca", true, "text", catalogFieldLocked("brand"))}
+              {field("model", "Modelo", true, "text", catalogFieldLocked("model"))}
+              {field("version", "Versión", false, "text", catalogFieldLocked("version"))}
+              {field("year", "Año", true, "number", catalogFieldLocked("year"))}
+              {field("color", "Color", false, "text", catalogFieldLocked("color"))}
               <FormSectionHeading icon={SlidersHorizontal} separated>
                 Características
               </FormSectionHeading>
@@ -791,6 +819,8 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                 fuelGroups,
                 true,
                 fuelGroupLabels,
+                undefined,
+                catalogFieldLocked("fuelGroup"),
               )}
               {select(
                 "fuelType",
@@ -799,8 +829,9 @@ export function FriForm({ preview = false }: { preview?: boolean }) {
                 true,
                 undefined,
                 fuelGroup ? undefined : "Elige primero el grupo de combustible.",
+                catalogFieldLocked("fuelType"),
               )}
-              {select("transmission", "Transmisión", transmissions)}
+              {select("transmission", "Transmisión", transmissions, true, undefined, undefined, catalogFieldLocked("transmission"))}
               {field("power", "Potencia (indica unidad)")}
               {fuelGroup === "EV" &&
                 field("autonomy", "Autonomía EV (km)", false, "number")}
